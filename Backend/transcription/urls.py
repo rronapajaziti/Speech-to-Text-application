@@ -6,6 +6,7 @@ from transcription.controllers import (
     audio_files_controller,
     transcription_controller,
     evaluation_results_controller,
+    dashboard_controller,
 )
 
 urlpatterns = [
@@ -51,4 +52,7 @@ urlpatterns = [
     path('evaluation-results/read/<int:pk>/', evaluation_results_controller.getEvaluationResult),
     path('evaluation-results/update/<int:pk>/', evaluation_results_controller.updateEvaluationResult),
     path('evaluation-results/delete/<int:pk>/', evaluation_results_controller.deleteEvaluationResult),
+
+    # DASHBOARD URLs
+    path('dashboard/stats/', dashboard_controller.getDashboardStats),
 ]
