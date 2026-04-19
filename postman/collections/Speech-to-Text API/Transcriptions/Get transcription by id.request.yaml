@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/transcriptions/read/{{pk}}/"
+method: GET
+order: 2000

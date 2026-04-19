@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/languages/update/{{pk}}/"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "language_name": "English (US)",
+      "code": "en-US"
+    }
+order: 4000

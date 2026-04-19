@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/audio-files/update/{{pk}}/"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "user": 1,
+      "file_name": "recording_001_edited.mp3",
+      "duration": 125.0,
+      "language": 1
+    }
+order: 4000

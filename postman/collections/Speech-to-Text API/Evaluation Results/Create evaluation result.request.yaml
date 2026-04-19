@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/evaluation-results/create/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "transcription": 1,
+      "accuracy_score": 0.95,
+      "error_rate": 0.05
+    }
+order: 3000

@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/audio-files/read/{{pk}}/"
+method: GET
+order: 2000

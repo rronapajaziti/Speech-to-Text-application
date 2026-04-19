@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/transcriptions/delete/{{pk}}/"
+method: DELETE
+order: 5000

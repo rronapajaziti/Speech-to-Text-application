@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/roles/read/{{pk}}/"
+method: GET
+order: 2000

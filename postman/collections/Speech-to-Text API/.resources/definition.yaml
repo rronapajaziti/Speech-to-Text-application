@@ -1,0 +1,6 @@
+$kind: collection
+name: Speech-to-Text API
+description: CRUD endpoints for Users, Roles, Languages, Audio Files, Transcriptions, Evaluation Results
+variables:
+  baseUrl: http://localhost:8000
+  pk: "1"

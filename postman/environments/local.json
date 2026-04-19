@@ -1,0 +1,23 @@
+{
+  "name": "Local Development",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "enabled": true
+    },
+    {
+      "key": "audioFileId",
+      "value": "1",
+      "type": "string",
+      "enabled": true
+    }
+  ]
+}

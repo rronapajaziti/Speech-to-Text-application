@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/languages/create/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "language_name": "English",
+      "code": "en"
+    }
+order: 3000

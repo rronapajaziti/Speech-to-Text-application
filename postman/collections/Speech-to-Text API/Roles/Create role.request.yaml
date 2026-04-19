@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/roles/create/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "role_name": "Editor"
+    }
+order: 3000

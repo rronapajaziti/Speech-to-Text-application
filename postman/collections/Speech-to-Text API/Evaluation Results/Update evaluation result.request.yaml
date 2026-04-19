@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/evaluation-results/update/{{pk}}/"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "transcription": 1,
+      "accuracy_score": 0.98,
+      "error_rate": 0.02
+    }
+order: 4000

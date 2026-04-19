@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/roles/update/{{pk}}/"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "role_name": "Admin"
+    }
+order: 4000

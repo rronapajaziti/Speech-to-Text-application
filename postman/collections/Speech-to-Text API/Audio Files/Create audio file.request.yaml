@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/audio-files/create/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "user": 1,
+      "file_name": "recording_001.mp3",
+      "duration": 120.5,
+      "language": 1
+    }
+order: 3000

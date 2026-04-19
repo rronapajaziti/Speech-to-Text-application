@@ -1,0 +1,16 @@
+# Use this workspace to collaborate
+workspace:
+  id: 3617f666-138e-4da9-89ff-fc2d9b484a8f
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ..\postman\collections\Speech-to-Text API: b28f26d9-f3e8-4966-84c6-fadc66a8f055
+    ..\postman\collections\Speech-to-Text API-1: 52002230-bdad3341-ded9-46ee-aa90-3000925f64ba
+
+# All resources in the `postman/` folder are automatically registered in Local View.
+# Point to additional files outside the `postman/` folder to register them individually. Example:
+#localResources:
+#  collections:
+#    - ../tests/E2E Test Collection/

@@ -1,0 +1,9 @@
+$kind: http-request
+url: "{{baseUrl}}/users/login"
+method: POST
+body:
+  type: json
+  content: ""
+auth:
+  type: noauth
+order: 6000

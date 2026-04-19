@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/transcriptions/update/{{pk}}/"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "audio": 1,
+      "raw_text": "Hello world transcription.",
+      "final_text": "Hello, world.",
+      "status": "completed"
+    }
+order: 4000

@@ -1,0 +1,9 @@
+variable:
+  - key: base_url
+    value: http://localhost:8000
+    type: string
+    description: Base URL for the Speech-to-Text API
+  - key: access_token
+    value: ""
+    type: string
+    description: JWT access token for authenticated requests

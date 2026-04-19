@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/transcriptions/create/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "audio": 1,
+      "raw_text": "Hello world transcription.",
+      "final_text": "",
+      "status": "pending"
+    }
+order: 3000
