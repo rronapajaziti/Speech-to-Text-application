@@ -1,15 +1,43 @@
 $kind: http-request
+name: Create audio file
 url: "{{baseUrl}}/audio-files/create/"
 method: POST
 headers:
-  Content-Type: application/json
+  - key: Content-Type
+    value: application/json
+    disabled: true
 body:
-  type: text
-  content: |-
-    {
-      "user": 1,
-      "file_name": "recording_001.mp3",
-      "duration": 120.5,
-      "language": 1
-    }
+  type: formdata
+  content:
+    - type: text
+      key: "user "
+      value: "1"
+      description: ""
+      disabled: false
+    - type: file
+      key: audio_file
+      src:
+        - /C:/Users/hp/Downloads/Transcription test2.m4a
+      description: ""
+      disabled: false
+    - type: text
+      key: file_name
+      value: Transcripton test 2
+      description: ""
+      disabled: false
+    - type: text
+      key: duration
+      value: "0.13"
+      description: ""
+      disabled: false
+    - type: text
+      key: language
+      value: "1"
+      description: ""
+      disabled: false
+    - type: text
+      key: mode
+      value: transcripion
+      description: ""
+      disabled: false
 order: 3000

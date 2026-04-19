@@ -36,9 +36,10 @@ def addTranscription(request):
 
     reference_text = request.data.get("reference_text")
     model_name = request.data.get("model_name", "base")
+    mode = request.data.get("mode", "transcribe")
 
     try:
-        result = create_transcription(audio_id, reference_text, model_name)
+        result = create_transcription(audio_id, reference_text, model_name, mode)
     except Http404:
         logger.error(f"Audio file with id={audio_id} not found")
         raise

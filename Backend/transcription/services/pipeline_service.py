@@ -8,7 +8,7 @@ from .evaluation_service import evaluate_transcription
 logger = logging.getLogger(__name__)
 
 
-def create_transcription(audio_id, reference_text=None, model_name="base"):
+def create_transcription(audio_id, reference_text=None, model_name="base", mode="transcribe"):
     audio = get_object_or_404(AudioFiles, id=audio_id)
 
     if not audio.audio_file:
@@ -27,7 +27,7 @@ def create_transcription(audio_id, reference_text=None, model_name="base"):
         raw_text = transcribe_audio(audio.audio_file.path)
         transcription.raw_text = raw_text
 
-        if reference_text:
+        if mode == "evaluate" or reference_text:
             evaluation = evaluate_transcription(reference_text, raw_text)
             transcription.wer_score = evaluation.get("wer")
 

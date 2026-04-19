@@ -41,7 +41,8 @@ def addAudioFile(request):
             try:
                 reference_text = request.data.get("reference_text")
                 model_name = request.data.get("model_name", "base")
-                transcription_result = create_transcription(audio_file.id, reference_text, model_name)
+                mode = request.data.get("mode", "transcribe")
+                transcription_result = create_transcription(audio_file.id, reference_text, model_name, mode)
             except Exception:
                 logger.exception("Failed to create transcription for audio_id=%s", audio_file.id)
         response_data = {

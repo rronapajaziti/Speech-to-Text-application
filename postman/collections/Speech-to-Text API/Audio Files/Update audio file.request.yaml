@@ -1,15 +1,47 @@
 $kind: http-request
+name: Update audio file
 url: "{{baseUrl}}/audio-files/update/{{pk}}/"
 method: PUT
 headers:
-  Content-Type: application/json
+  - key: Content-Type
+    value: application/json
+    disabled: true
 body:
-  type: text
-  content: |-
-    {
-      "user": 1,
-      "file_name": "recording_001_edited.mp3",
-      "duration": 125.0,
-      "language": 1
-    }
+  type: formdata
+  content:
+    - type: text
+      key: user
+      value: ""
+      description: ""
+      disabled: false
+    - type: file
+      key: audio_file
+      src: []
+      description: ""
+      disabled: false
+    - type: text
+      key: file_name
+      value: ""
+      description: ""
+      disabled: false
+    - type: text
+      key: duration
+      value: ""
+      description: ""
+      disabled: false
+    - type: text
+      key: language
+      value: ""
+      description: ""
+      disabled: false
+    - type: text
+      key: mode
+      value: "transcribe"
+      description: ""
+      disabled: false
+    - type: text
+      key: languge
+      value: ""
+      description: ""
+      disabled: false
 order: 4000

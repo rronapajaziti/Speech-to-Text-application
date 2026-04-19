@@ -1,4 +1,5 @@
 $kind: http-request
+name: Create transcription
 url: "{{baseUrl}}/transcriptions/create/"
 method: POST
 headers:
@@ -7,9 +8,8 @@ body:
   type: text
   content: |-
     {
-      "audio": 1,
-      "raw_text": "Hello world transcription.",
-      "final_text": "",
-      "status": "pending"
+      "audio": 6,
+      "reference_text": "Today I am testing an automatic speech recognition system that converts spoken language into text and evaluates its accuracy using word error rate.",
+      "model_name": "base"
     }
 order: 3000
