@@ -1,3 +1,4 @@
 Django==5.2.10
 djangorestframework
 jiwer
+django-cors-headers

@@ -34,4 +34,4 @@ services:
       "
 
 volumes:
-  postgres_data:
+  postgres_data:000814

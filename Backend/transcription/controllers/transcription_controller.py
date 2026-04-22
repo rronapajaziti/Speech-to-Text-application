@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from ..models import Transcription
 from ..serializers import TranscriptionSerializer
 from ..services.pipeline_service import create_transcription, update_transcription
+from ..services.evaluation_service import evaluate_transcription
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,36 @@ def updateTranscription(request, pk):
     updated = update_transcription(transcription, request.data)
     serializer = TranscriptionSerializer(updated, many=False)
     return Response(serializer.data)
+
+
+@api_view(["POST"])
+def getTranscriptionStats(request, pk):
+    """
+    Compute metrics (WER/CER/etc) for a specific transcription without
+    modifying stored fields (except what updateTranscription does).
+    """
+    try:
+        transcription = get_object_or_404(Transcription, id=pk)
+    except Http404:
+        logger.error("Transcription with id=%s not found for stats", pk)
+        raise
+
+    reference_text = (request.data.get("reference_text") or "").strip()
+    if not reference_text:
+        return Response({"error": "reference_text is required"}, status=400)
+
+    hypothesis_text = (request.data.get("hypothesis_text") or transcription.raw_text or "").strip()
+    if not hypothesis_text:
+        return Response({"error": "hypothesis_text is empty"}, status=400)
+
+    stats = evaluate_transcription(reference_text, hypothesis_text)
+    return Response(
+        {
+            "transcription_id": transcription.id,
+            "audio_id": transcription.audio_id,
+            "stats": stats,
+        }
+    )
 
 @api_view(['DELETE'])
 def deleteTranscription(request, pk):

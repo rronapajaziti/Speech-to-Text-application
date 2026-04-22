@@ -21,9 +21,17 @@ def getUsers(request):
     serializer = UserSerializer(users,many=True)
     return Response(serializer.data)
 
+
+@api_view(['GET'])
+def getUsersPublic(request):
+    users = User.objects.all().order_by("id")
+    data = [{"id": u.id, "username": u.username} for u in users]
+    return Response(data)
+
 #get single user
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# NOTE(dev): temporarily public for UI display (no token yet).
+# @permission_classes([IsAuthenticated])
 def getUser(request,pk):
     try:
         users = get_object_or_404(User,id=pk)

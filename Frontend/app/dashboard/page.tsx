@@ -43,7 +43,8 @@ type DashboardStats = {
 };
 
 async function getDashboardStats(): Promise<DashboardStats | null> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   try {
     const response = await fetch(`${apiBase}/dashboard/stats/`, {
       cache: "no-store",
@@ -73,13 +74,17 @@ function toAngle(part: number, total: number): number {
 
 export default async function DashboardPage() {
   const data = await getDashboardStats();
+  const cardClass = "rounded-xl border border-[#D7E3FF] bg-[#EEF2FF] shadow-sm";
+  const mutedTextClass = "text-[#64748B]";
+  const primaryTextClass = "text-[#0F172A]";
 
   if (!data) {
     return (
       <div className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-sm text-red-600 dark:text-red-300">
-          Could not load dashboard stats. Check backend API and `NEXT_PUBLIC_API_BASE_URL`.
+        <p className="text-sm text-red-600">
+          Could not load dashboard stats. Check backend API and
+          `NEXT_PUBLIC_API_BASE_URL`.
         </p>
       </div>
     );
@@ -94,16 +99,19 @@ export default async function DashboardPage() {
   const completedAngle = toAngle(completed, total);
   const failedAngle = toAngle(failed, total);
   const pendingAngle = toAngle(pending, total);
-  const processingAngle = Math.max(0, 360 - completedAngle - failedAngle - pendingAngle);
+  const processingAngle = Math.max(
+    0,
+    360 - completedAngle - failedAngle - pendingAngle,
+  );
   const completedPercent = toPercent(completed, total);
   const failedPercent = toPercent(failed, total);
   const pendingPercent = toPercent(pending, total);
   const processingPercent = toPercent(processing, total);
 
   const donutBackground = `conic-gradient(
-    #22c55e 0deg ${completedAngle}deg,
-    #f43f5e ${completedAngle}deg ${completedAngle + failedAngle}deg,
-    #f59e0b ${completedAngle + failedAngle}deg ${completedAngle + failedAngle + pendingAngle}deg,
+    #06a77d 0deg ${completedAngle}deg,
+    #c1121f ${completedAngle}deg ${completedAngle + failedAngle}deg,
+    #ffc300 ${completedAngle + failedAngle}deg ${completedAngle + failedAngle + pendingAngle}deg,
     #0ea5e9 ${completedAngle + failedAngle + pendingAngle}deg ${completedAngle + failedAngle + pendingAngle + processingAngle}deg
   )`;
 
@@ -114,80 +122,138 @@ export default async function DashboardPage() {
   const avgPct = Math.min(100, Math.max(0, Math.round(avg * 100)));
   const worstPct = Math.min(100, Math.max(0, Math.round(worst * 100)));
 
-  const metadataSignals = Number(data.variation_coverage.noise_metadata_available) + Number(data.variation_coverage.dialect_metadata_available);
-  const topLanguages = data.variation_coverage.language_distribution.slice(0, 6);
-  const topLanguageTotal = topLanguages.reduce((acc, item) => acc + item.total, 0);
+  const metadataSignals =
+    Number(data.variation_coverage.noise_metadata_available) +
+    Number(data.variation_coverage.dialect_metadata_available);
+  const topLanguages = data.variation_coverage.language_distribution.slice(
+    0,
+    6,
+  );
+  const topLanguageTotal = topLanguages.reduce(
+    (acc, item) => acc + item.total,
+    0,
+  );
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className={`flex flex-col gap-6 ${primaryTextClass}`}>
+      <h1 className="text-3xl font-bold text-[#0F172A]">Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 shadow">
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Total Transcriptions</p>
+        <div className={`p-5 ${cardClass}`}>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Total Transcriptions
+          </p>
           <p className="text-2xl font-semibold mt-1">{total}</p>
         </div>
-        <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 shadow">
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Avg Audio Duration</p>
-          <p className="text-2xl font-semibold mt-1">{data.workflow_factors.average_audio_duration_seconds}s</p>
+        <div className={`p-5 ${cardClass}`}>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Avg Audio Duration
+          </p>
+          <p className="text-2xl font-semibold mt-1">
+            {data.workflow_factors.average_audio_duration_seconds}s
+          </p>
         </div>
-        <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 shadow">
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Reference Samples</p>
-          <p className="text-2xl font-semibold mt-1">{data.wer_metrics.samples_with_reference_text}</p>
+        <div className={`p-5 ${cardClass}`}>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Reference Samples
+          </p>
+          <p className="text-2xl font-semibold mt-1">
+            {data.wer_metrics.samples_with_reference_text}
+          </p>
         </div>
-        <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 shadow">
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Metadata Signals</p>
+        <div className={`p-5 ${cardClass}`}>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Metadata Signals
+          </p>
           <p className="text-2xl font-semibold mt-1">{metadataSignals}/2</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="p-6 rounded-xl bg-white dark:bg-zinc-900 shadow">
+        <div className={`p-6 ${cardClass}`}>
           <h2 className="text-lg font-semibold">Workflow Donut</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Status share across all runs</p>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Status share across all runs
+          </p>
           <div className="mt-5 flex flex-col sm:flex-row gap-6 items-center">
             <div
-              className="h-44 w-44 rounded-full relative ring-4 ring-zinc-100 dark:ring-zinc-800"
+              className="h-44 w-44 rounded-full relative ring-4 ring-[#D7E3FF]"
               style={{ background: donutBackground }}
             >
-              <div className="absolute inset-5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 flex flex-col items-center justify-center">
-                <p className="text-3xl font-bold leading-none">{data.workflow_factors.success_rate_percent}%</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-1">Success</p>
+              <div className="absolute inset-5 rounded-full bg-white border border-[#D7E3FF] flex flex-col items-center justify-center">
+                <p className="text-xl font-bold leading-none">
+                  {data.workflow_factors.success_rate_percent}%
+                </p>
+                <p className={`text-xs mt-1 ${mutedTextClass}`}>
+                  Success
+                </p>
               </div>
             </div>
             <div className="text-sm grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
               {[
-                { label: "Completed", count: completed, percent: completedPercent, color: "bg-emerald-500" },
-                { label: "Failed", count: failed, percent: failedPercent, color: "bg-rose-500" },
-                { label: "Pending", count: pending, percent: pendingPercent, color: "bg-amber-500" },
-                { label: "Processing", count: processing, percent: processingPercent, color: "bg-sky-500" },
+                {
+                  label: "Completed",
+                  count: completed,
+                  percent: completedPercent,
+                  color: "bg-[#06a77d]",
+                },
+                {
+                  label: "Failed",
+                  count: failed,
+                  percent: failedPercent,
+                  color: "bg-[#c1121f]",
+                },
+                {
+                  label: "Pending",
+                  count: pending,
+                  percent: pendingPercent,
+                  color: "bg-[#FFC300]",
+                },
+                {
+                  label: "Processing",
+                  count: processing,
+                  percent: processingPercent,
+                  color: "bg-[#0EA5E9]",
+                },
               ].map((item) => (
-                <div key={item.label} className="rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2">
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-[#D7E3FF] bg-white px-3 py-2"
+                >
                   <div className="flex items-center justify-between">
                     <p className="flex items-center gap-2 font-medium">
-                      <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${item.color}`}
+                      />
                       {item.label}
                     </p>
                     <p>{item.percent}%</p>
                   </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{item.count} samples</p>
+                  <p className={`text-xs mt-1 ${mutedTextClass}`}>
+                    {item.count} samples
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="p-6 rounded-xl bg-white dark:bg-zinc-900 shadow">
+        <div className={`p-6 ${cardClass}`}>
           <h2 className="text-lg font-semibold">WER Range Band</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Best, average, and worst word error rate</p>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Best, average, and worst word error rate
+          </p>
           <div className="mt-5 space-y-4 text-sm">
             <div>
               <div className="flex justify-between mb-1">
                 <span>Best WER</span>
                 <span>{best}</span>
               </div>
-              <div className="h-2 rounded bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded" style={{ width: `${bestPct}%` }} />
+              <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
+                <div
+                  className="h-full bg-[#06a77d] rounded"
+                  style={{ width: `${bestPct}%` }}
+                />
               </div>
             </div>
             <div>
@@ -195,8 +261,11 @@ export default async function DashboardPage() {
                 <span>Average WER</span>
                 <span>{avg}</span>
               </div>
-              <div className="h-2 rounded bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                <div className="h-full bg-amber-500 rounded" style={{ width: `${avgPct}%` }} />
+              <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
+                <div
+                  className="h-full bg-[#FFC300] rounded"
+                  style={{ width: `${avgPct}%` }}
+                />
               </div>
             </div>
             <div>
@@ -204,61 +273,86 @@ export default async function DashboardPage() {
                 <span>Worst WER</span>
                 <span>{worst}</span>
               </div>
-              <div className="h-2 rounded bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                <div className="h-full bg-rose-500 rounded" style={{ width: `${worstPct}%` }} />
+              <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
+                <div
+                  className="h-full bg-[#c1121f] rounded"
+                  style={{ width: `${worstPct}%` }}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1">
-              <p>Low-WER share: {data.robustness_and_accuracy.low_wer_ratio_percent}%</p>
-              <p>High-WER share: {data.robustness_and_accuracy.high_wer_ratio_percent}%</p>
+              <p>
+                Low-WER share:{" "}
+                {data.robustness_and_accuracy.low_wer_ratio_percent}%
+              </p>
+              <p>
+                High-WER share:{" "}
+                {data.robustness_and_accuracy.high_wer_ratio_percent}%
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="p-6 rounded-xl bg-white dark:bg-zinc-900 shadow">
+        <div className={`p-6 ${cardClass}`}>
           <h2 className="text-lg font-semibold">Model Coverage Ranking</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Top ASR models by usage count</p>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Top ASR models by usage count
+          </p>
           <div className="mt-4 flex flex-col gap-3 text-sm">
-            {data.variation_coverage.model_distribution.slice(0, 6).map((model) => {
-              const percent = toPercent(model.total, total);
-              return (
-                <div key={model.model_name || "unknown"}>
-                  <div className="flex justify-between">
-                    <span>{model.model_name || "unknown"}</span>
-                    <span>{model.total}</span>
+            {data.variation_coverage.model_distribution
+              .slice(0, 6)
+              .map((model) => {
+                const percent = toPercent(model.total, total);
+                return (
+                  <div key={model.model_name || "unknown"}>
+                    <div className="flex justify-between">
+                      <span>{model.model_name || "unknown"}</span>
+                      <span>{model.total}</span>
+                    </div>
+                    <div className="h-2 mt-1 rounded bg-[#D7E3FF] overflow-hidden">
+                      <div
+                        className="h-full rounded bg-[#1E3A8A]"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 mt-1 rounded bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                    <div className="h-full rounded bg-indigo-500" style={{ width: `${percent}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-            {data.variation_coverage.model_distribution.length === 0 && <p>No model data yet.</p>}
+                );
+              })}
+            {data.variation_coverage.model_distribution.length === 0 && (
+              <p>No model data yet.</p>
+            )}
           </div>
         </div>
 
-        <div className="p-6 rounded-xl bg-white dark:bg-zinc-900 shadow">
+        <div className={`p-6 ${cardClass}`}>
           <h2 className="text-lg font-semibold">Language Coverage Heat List</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-300">Top languages with count and share of language samples</p>
+          <p className={`text-sm ${mutedTextClass}`}>
+            Top languages with count and share of language samples
+          </p>
           <div className="mt-4 flex flex-col gap-3 text-sm">
             {topLanguages.map((language, index) => {
-              const shareInLanguages = toPercent(language.total, topLanguageTotal);
+              const shareInLanguages = toPercent(
+                language.total,
+                topLanguageTotal,
+              );
               return (
                 <div key={`${language.audio__language__code}-${index}`}>
                   <div className="flex justify-between items-center">
                     <p className="font-medium">
                       {index + 1}. {language.audio__language__language_name}
-                      <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className={`ml-2 text-xs ${mutedTextClass}`}>
                         ({language.audio__language__code})
                       </span>
                     </p>
-                    <p>{language.total} | {shareInLanguages}%</p>
+                    <p>
+                      {language.total} | {shareInLanguages}%
+                    </p>
                   </div>
-                  <div className="h-2 mt-1 rounded bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                  <div className="h-2 mt-1 rounded bg-[#D7E3FF] overflow-hidden">
                     <div
-                      className="h-full rounded bg-cyan-500"
+                      className="h-full rounded bg-[#0EA5E9]"
                       style={{ width: `${Math.max(8, shareInLanguages)}%` }}
                     />
                   </div>
@@ -272,39 +366,46 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="p-6 rounded-xl bg-white dark:bg-zinc-900 shadow">
+      <div className={`p-6 ${cardClass}`}>
         <h2 className="text-lg font-semibold">Recent Activity</h2>
-        <p className="text-sm text-zinc-500 dark:text-zinc-300">Latest samples with quick quality and workflow tags</p>
+        <p className={`text-sm ${mutedTextClass}`}>
+          Latest samples with quick quality and workflow tags
+        </p>
         <div className="mt-4 flex flex-col gap-3 text-sm">
           {data.recent_activity.length === 0 ? (
             <p>No transcriptions yet.</p>
           ) : (
             data.recent_activity.map((item) => (
-              <div key={item.id} className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+              <div
+                key={item.id}
+                className="rounded-lg border border-[#D7E3FF] bg-white p-3"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">
                     #{item.id} {item.model_name} | {item.language}
                   </p>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-100 dark:bg-zinc-800">
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-[#E0E7FF] text-[#1E3A8A]">
                       {item.status}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs ${
                         item.wer_score === null
-                          ? "bg-zinc-100 dark:bg-zinc-800"
+                          ? "bg-[#E0E7FF] text-[#1E3A8A]"
                           : item.wer_score <= 0.2
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            ? "bg-[#D5F3EE] text-[#06a77d]"
                             : item.wer_score >= 0.4
-                              ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                              ? "bg-[#FBE4E4] text-[#c1121f]"
+                              : "bg-[#FFF7D1] text-[#8C6A00]"
                       }`}
                     >
-                      {item.wer_score === null ? "WER N/A" : `WER ${item.wer_score}`}
+                      {item.wer_score === null
+                        ? "WER N/A"
+                        : `WER ${item.wer_score}`}
                     </span>
                   </div>
                 </div>
-                <p className="mt-1 text-zinc-500 dark:text-zinc-400">
+                <p className={`mt-1 ${mutedTextClass}`}>
                   {new Date(item.date_created).toLocaleString()}
                 </p>
               </div>

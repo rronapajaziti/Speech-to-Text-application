@@ -12,6 +12,7 @@ from transcription.controllers import (
 urlpatterns = [
     # USER URLs
     path('users/', user_controller.getUsers),
+    path('users/public/', user_controller.getUsersPublic),
     path('users/create/', user_controller.addUser),
     path('users/read/<int:pk>/', user_controller.getUser),
     path('users/update/<int:pk>/', user_controller.updateUser),
@@ -44,6 +45,7 @@ urlpatterns = [
     path('transcriptions/create/', transcription_controller.addTranscription),
     path('transcriptions/read/<int:pk>/', transcription_controller.getTranscription),
     path('transcriptions/update/<int:pk>/', transcription_controller.updateTranscription),
+    path('transcriptions/stats/<int:pk>/', transcription_controller.getTranscriptionStats),
     path('transcriptions/delete/<int:pk>/', transcription_controller.deleteTranscription),
 
     # EVALUATION RESULTS URLs

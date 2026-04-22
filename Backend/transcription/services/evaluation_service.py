@@ -1,4 +1,4 @@
-from ..utils.metrics import calculate_wer
+from ..utils.metrics import calculate_asr_stats
 
 
 def evaluate_transcription(reference_text, hypothesis_text):
@@ -11,7 +11,6 @@ def evaluate_transcription(reference_text, hypothesis_text):
     reference_text = reference_text.lower().strip()
     hypothesis_text = hypothesis_text.lower().strip()
 
-    return {
-        "wer": calculate_wer(reference_text, hypothesis_text),
-        "valid": True
-    }
+    stats = calculate_asr_stats(reference_text, hypothesis_text)
+    stats["valid"] = True
+    return stats

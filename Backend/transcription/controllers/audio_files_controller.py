@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from rest_framework.decorators import api_view, parser_classes
@@ -33,24 +34,75 @@ def getAudioFile(request, pk):
 @api_view(['POST'])
 @parser_classes((MultiPartParser, FormParser))
 def addAudioFile(request):
-    serializer = AudioFilesSerializer(data=request.data)
-    if serializer.is_valid():
-        audio_file = serializer.save()
-        transcription_result = None
-        if audio_file.audio_file:
+    user_id = request.data.get("user")
+    file_hash = (request.data.get("file_hash") or "").strip().lower()
+
+    run_transcription = str(request.data.get("run_transcription") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "y",
+    }
+    reference_text = request.data.get("reference_text")
+    model_name = request.data.get("model_name", "base")
+    mode = request.data.get("mode", "transcribe")
+
+    if user_id and file_hash:
+        existing = AudioFiles.objects.filter(user_id=user_id, file_hash=file_hash).first()
+        if existing and existing.audio_file:
             try:
-                reference_text = request.data.get("reference_text")
-                model_name = request.data.get("model_name", "base")
-                mode = request.data.get("mode", "transcribe")
-                transcription_result = create_transcription(audio_file.id, reference_text, model_name, mode)
+                if not Path(existing.audio_file.path).exists():
+                    logger.warning(
+                        "Audio file missing on disk for id=%s path=%s; re-upload required",
+                        existing.id,
+                        existing.audio_file.path,
+                    )
+                    existing = None
             except Exception:
-                logger.exception("Failed to create transcription for audio_id=%s", audio_file.id)
-        response_data = {
-            "audio_file": AudioFilesSerializer(audio_file).data,
-            "transcription": transcription_result,
-        }
-        return Response(response_data, status=201)
-    return Response(serializer.errors, status=400)
+                logger.exception("Failed to stat existing audio file for id=%s", existing.id)
+                existing = None
+
+        if existing and existing.audio_file:
+            transcription_result = None
+            if run_transcription:
+                try:
+                    transcription_result = create_transcription(existing.id, reference_text, model_name, mode)
+                except Exception:
+                    logger.exception("Failed to create transcription for existing audio_id=%s", existing.id)
+                    return Response(
+                        {"detail": "Transcription failed on server. Check backend logs."},
+                        status=500,
+                    )
+            return Response(
+                {
+                    "audio_file": AudioFilesSerializer(existing).data,
+                    "transcription": transcription_result,
+                    "reused": True,
+                },
+                status=201,
+            )
+
+    serializer = AudioFilesSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+
+    audio_file = serializer.save()
+    transcription_result = None
+    if run_transcription and audio_file.audio_file:
+        try:
+            transcription_result = create_transcription(audio_file.id, reference_text, model_name, mode)
+        except Exception:
+            logger.exception("Failed to create transcription for audio_id=%s", audio_file.id)
+            return Response(
+                {"detail": "Transcription failed on server. Check backend logs."},
+                status=500,
+            )
+    response_data = {
+        "audio_file": AudioFilesSerializer(audio_file).data,
+        "transcription": transcription_result,
+        "reused": False,
+    }
+    return Response(response_data, status=201)
 
 
 @api_view(['PUT'])
