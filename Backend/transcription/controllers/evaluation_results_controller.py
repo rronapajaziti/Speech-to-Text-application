@@ -3,9 +3,9 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from ..models import EvaluationResults
+from ..models import EvaluationResults,Transcription
 from ..serializers import EvaluationResultsSerializer
-
+from ..services.evaluation_service import evaluate_transcription
 logger = logging.getLogger(__name__)
 
 
@@ -29,12 +29,39 @@ def getEvaluationResult(request, pk):
 
 @api_view(['POST'])
 def addEvaluationResult(request):
-    serializer = EvaluationResultsSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-    return Response(serializer.data)
+    transcription_id = request.data.get("transcription_id")
+    gender = request.data.get("gender")
+    dialect = request.data.get("dialect")
 
+    if not transcription_id:
+        return Response({"error": "transcription_id required"}, status=400)
 
+    transcription = get_object_or_404(Transcription, id=transcription_id)
+
+    result = evaluate_transcription(
+        transcription.reference_text,
+        transcription.raw_text
+    )
+
+    evaluation = EvaluationResults.objects.create(
+        transcription=transcription,
+        gender=gender,
+        dialect=dialect,
+
+        wer=result["wer"],
+        cer=result["cer"],
+        mer=None,
+        wil=None,
+        wip=None,
+
+        hits=0,
+        substitutions=result["substitutions"],
+        deletions=result["deletions"],
+        insertions=result["insertions"],
+    )
+
+    return Response(EvaluationResultsSerializer(evaluation).data, status=201)
+    
 @api_view(['PUT'])
 def updateEvaluationResult(request, pk):
     try:
