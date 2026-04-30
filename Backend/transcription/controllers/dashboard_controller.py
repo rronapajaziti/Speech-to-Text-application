@@ -32,8 +32,8 @@ def getDashboardStats(request):
     high_wer_ratio = (high_wer_count / with_reference_count * 100) if with_reference_count else 0.0
 
     evaluation_aggregates = EvaluationResults.objects.aggregate(
-        average_accuracy=Avg("accuracy_score"),
-        average_error_rate=Avg("error_rate"),
+        average_accuracy=Avg("accuracy"),
+        average_error_rate=Avg("wer")
     )
 
     model_distribution = (
@@ -92,8 +92,12 @@ def getDashboardStats(request):
                 "id": item.id,
                 "status": item.status,
                 "model_name": item.model_name,
-                "language": item.audio.language.language_name,
-                "date_created": item.date_created,
+                "language": (
+                    item.audio.language.language_name
+                    if item.audio and item.audio.language
+                    else "Unknown"
+                ),
+                "date_created": item.date_created.isoformat() if item.date_created else None,
                 "wer_score": item.wer_score,
             }
             for item in recent_activity

@@ -3,12 +3,19 @@ from django.shortcuts import get_object_or_404
 
 from ..models import AudioFiles, Transcription
 from .whisper_service import transcribe_audio
+from .google_asr_service import transcribe_audio_google
 from .evaluation_service import evaluate_transcription
 
 logger = logging.getLogger(__name__)
 
 
-def create_transcription(audio_id, reference_text=None, model_name="base", mode="transcribe"):
+def create_transcription(
+    audio_id,
+    reference_text=None,
+    model_name="base",
+    mode="transcribe",
+    dialect_hint=None,
+):
     audio = get_object_or_404(AudioFiles, id=audio_id)
 
     if not audio.audio_file:
@@ -24,7 +31,25 @@ def create_transcription(audio_id, reference_text=None, model_name="base", mode=
     )
 
     try:
-        raw_text = transcribe_audio(audio.audio_file.path)
+        forced_language = getattr(audio.language, "code", None)
+        normalized_model_name = (model_name or "").strip().lower()
+        if normalized_model_name == "google":
+            transcription_result = transcribe_audio_google(
+                audio.audio_file.path,
+                forced_language=forced_language,
+            )
+        else:
+            transcription_result = transcribe_audio(
+                audio.audio_file.path,
+                forced_language=forced_language,
+                model_name=model_name,
+                dialect_hint=dialect_hint,
+            )
+        raw_text = (
+            transcription_result.get("text", "")
+            if isinstance(transcription_result, dict)
+            else str(transcription_result or "")
+        )
         transcription.raw_text = raw_text
 
         if mode == "evaluate" or reference_text:

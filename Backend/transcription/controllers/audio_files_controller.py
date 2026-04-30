@@ -46,6 +46,7 @@ def addAudioFile(request):
     reference_text = request.data.get("reference_text")
     model_name = request.data.get("model_name", "base")
     mode = request.data.get("mode", "transcribe")
+    dialect_hint = request.data.get("dialect")
 
     if user_id and file_hash:
         existing = AudioFiles.objects.filter(user_id=user_id, file_hash=file_hash).first()
@@ -66,7 +67,13 @@ def addAudioFile(request):
             transcription_result = None
             if run_transcription:
                 try:
-                    transcription_result = create_transcription(existing.id, reference_text, model_name, mode)
+                    transcription_result = create_transcription(
+                        existing.id,
+                        reference_text,
+                        model_name,
+                        mode,
+                        dialect_hint,
+                    )
                 except Exception:
                     logger.exception("Failed to create transcription for existing audio_id=%s", existing.id)
                     return Response(
@@ -90,7 +97,13 @@ def addAudioFile(request):
     transcription_result = None
     if run_transcription and audio_file.audio_file:
         try:
-            transcription_result = create_transcription(audio_file.id, reference_text, model_name, mode)
+            transcription_result = create_transcription(
+                audio_file.id,
+                reference_text,
+                model_name,
+                mode,
+                dialect_hint,
+            )
         except Exception:
             logger.exception("Failed to create transcription for audio_id=%s", audio_file.id)
             return Response(

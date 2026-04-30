@@ -2,3 +2,9 @@ Django==5.2.10
 djangorestframework
 jiwer
 django-cors-headers
+djangorestframework-simplejwt
+openai-whisper
+torch
+ffmpeg-python
+SpeechRecognition
+pydub

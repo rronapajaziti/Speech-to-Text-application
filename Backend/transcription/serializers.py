@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Roles, Language, AudioFiles, Transcription, EvaluationResults
+from .models import (
+    Roles,
+    Language,
+    AudioFiles,
+    Transcription,
+    EvaluationResults,
+)
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 

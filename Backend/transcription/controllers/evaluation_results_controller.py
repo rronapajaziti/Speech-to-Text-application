@@ -32,6 +32,7 @@ def addEvaluationResult(request):
     transcription_id = request.data.get("transcription_id")
     gender = request.data.get("gender")
     dialect = request.data.get("dialect")
+    age = request.data.get("age")
 
     if not transcription_id:
         return Response({"error": "transcription_id required"}, status=400)
@@ -47,6 +48,7 @@ def addEvaluationResult(request):
         transcription=transcription,
         gender=gender,
         dialect=dialect,
+        age =age,
 
         wer=result["wer"],
         cer=result["cer"],

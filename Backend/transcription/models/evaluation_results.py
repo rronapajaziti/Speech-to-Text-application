@@ -8,6 +8,7 @@ class EvaluationResults(models.Model):
 
     gender = models.CharField(max_length=20, null=True, blank=True)
     dialect = models.CharField(max_length=50, null=True, blank=True)
+    age = models.IntegerField(null=True, blank=True)
 
     wer = models.FloatField()
     cer = models.FloatField(null=True, blank=True)
