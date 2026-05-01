@@ -2,56 +2,113 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import "./sidebar.css";
+import { LayoutDashboard, Mic, BarChart3, History } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
+  const [openMenu, setOpenMenu] = useState<number | null>(1);
+
   const navItems = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/production", label: "Transcription" },
-    { href: "/evaluation", label: "Evaluation" },
+    {
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      label: "Evaluation",
+      icon: Mic,
+      children: [
+        { href: "/evaluation", label: "Overview", icon: BarChart3 },
+        { href: "/evaluation/history", label: "History", icon: History },
+      ],
+    },
   ];
 
+  const toggleMenu = (index: number) => {
+    setOpenMenu(openMenu === index ? null : index);
+  };
+
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col border-r border-[#E7E5E4] bg-white p-6 text-[#0F172A]">
-      <div className="mb-8 flex items-center gap-3 border-b border-[#E7E5E4] pb-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#001D3D] font-bold text-white">
-          S
-        </div>
+    <aside className="sidebar">
+      {/* Logo */}
+      <div className="logo">
+        <div className="logo-box">S</div>
         <div>
-          <p className="text-sm font-semibold">Scribe</p>
-          <p className="text-[11px] text-[#64748B]">Speech-to-Text</p>
+          <p className="logo-title">Scribe</p>
+          <p className="logo-sub">Speech-to-Text</p>
         </div>
       </div>
 
-      <nav className="flex flex-col gap-3">
-        {navItems.map((item) => {
+      {/* Navigation */}
+      <nav className="nav">
+        {navItems.map((item, index) => {
+          const Icon = item.icon;
+
+          if (item.children) {
+            const isOpen = openMenu === index;
+
+            return (
+              <div key={item.label} className="nav-group">
+                {/* Parent clickable */}
+                <div
+                  className="nav-item parent"
+                  onClick={() => toggleMenu(index)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {Icon && <Icon size={18} className="icon" />}
+                  <span>{item.label}</span>
+                </div>
+
+                {/* Submenu */}
+                {isOpen && (
+                  <div className="submenu">
+                    {item.children.map((child) => {
+                      const isActive = pathname === child.href;
+                      const ChildIcon = child.icon;
+
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={`sub-item ${isActive ? "active" : ""}`}
+                        >
+                          {ChildIcon && (
+                            <ChildIcon size={16} className="icon" />
+                          )}
+                          <span>{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const isActive = pathname === item.href;
+
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`px-4 py-2 rounded-md transition ${
-                isActive
-                  ? "bg-[#EEF2FF] text-[#001D3D]"
-                  : "text-[#334155] hover:bg-[#F5F5F4] hover:text-[#0F172A]"
-              }`}
+              className={`nav-item ${isActive ? "active" : ""}`}
             >
-              {item.label}
+              {Icon && <Icon size={18} className="icon" />}
+              <span>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto border-t border-[#E7E5E4] pt-4">
-        <div className="flex items-center gap-3 rounded-lg bg-[#F5F5F4] p-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00814D] text-xs font-semibold text-white">
-            RP
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">Rrona Pajaziti</p>
-            <p className="truncate text-xs text-[#64748B]">rrona.pajaziti@...</p>
-          </div>
+      {/* User */}
+      <div className="user">
+        <div className="avatar">RP</div>
+        <div>
+          <p className="user-name">Rrona Pajaziti</p>
+          <p className="user-email">rrona.pajaziti@...</p>
         </div>
       </div>
     </aside>

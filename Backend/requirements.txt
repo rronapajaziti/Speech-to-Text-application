@@ -1,10 +1,18 @@
-Django==5.2.10
+Django==5.2.12
+
 djangorestframework
-jiwer
 django-cors-headers
 djangorestframework-simplejwt
-openai-whisper
+
+jiwer
+
+openai-whisper @ git+https://github.com/openai/whisper.git
+
 torch
 ffmpeg-python
 SpeechRecognition
 pydub
+
+google-cloud-speech
+
+python-dotenv

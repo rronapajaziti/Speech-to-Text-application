@@ -11,21 +11,37 @@ logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 def getEvaluationResults(request):
-    evaluation_results = EvaluationResults.objects.all()
-    serializer = EvaluationResultsSerializer(evaluation_results, many=True)
-    return Response(serializer.data)
+    qs = EvaluationResults.objects.all()
 
+    transcription_id = request.query_params.get("transcription_id")
+    if transcription_id:
+        qs = qs.filter(transcription_id=transcription_id)
+
+    serializer = EvaluationResultsSerializer(qs, many=True)
+    return Response(serializer.data)
 
 @api_view(['GET'])
 def getEvaluationResult(request, pk):
-    try:
-        evaluation_result = get_object_or_404(EvaluationResults, id=pk)
-    except Http404:
-        logger.error(f"EvaluationResult with id={pk} not found")
-        raise
-    serializer = EvaluationResultsSerializer(evaluation_result, many=False)
-    return Response(serializer.data)
+    evaluation_result = get_object_or_404(EvaluationResults, id=pk)
 
+    serializer = EvaluationResultsSerializer(evaluation_result)
+
+    return Response({
+        "id": evaluation_result.id,
+        "transcription": evaluation_result.transcription.id,
+        "wer": evaluation_result.wer,
+        "cer": evaluation_result.cer,
+        "mer": evaluation_result.mer,
+        "wil": evaluation_result.wil,
+        "wip": evaluation_result.wip,
+        "substitutions": evaluation_result.substitutions,
+        "deletions": evaluation_result.deletions,
+        "insertions": evaluation_result.insertions,
+        "gender": evaluation_result.gender,
+        "dialect": evaluation_result.dialect,
+        "age": evaluation_result.age,
+        "evaluation_date": evaluation_result.evaluation_date,
+    })
 
 @api_view(['POST'])
 def addEvaluationResult(request):

@@ -1,16 +1,28 @@
 import logging
+import hashlib
 from pathlib import Path
+
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
+
 from ..models import AudioFiles
 from ..serializers import AudioFilesSerializer
 from ..services.pipeline_service import create_transcription
 
 logger = logging.getLogger(__name__)
 
+
+def generate_file_hash(uploaded_file):
+    hasher = hashlib.sha256()
+
+    for chunk in uploaded_file.chunks():
+        hasher.update(chunk)
+
+    uploaded_file.seek(0)  # reset pointer after reading
+    return hasher.hexdigest()
 
 
 @api_view(['GET'])
@@ -27,7 +39,8 @@ def getAudioFile(request, pk):
     except Http404:
         logger.error(f"AudioFile with id={pk} not found")
         raise
-    serializer = AudioFilesSerializer(audio_file, many=False)
+
+    serializer = AudioFilesSerializer(audio_file)
     return Response(serializer.data)
 
 
@@ -35,36 +48,41 @@ def getAudioFile(request, pk):
 @parser_classes((MultiPartParser, FormParser))
 def addAudioFile(request):
     user_id = request.data.get("user")
-    file_hash = (request.data.get("file_hash") or "").strip().lower()
+
+    uploaded_file = request.FILES.get("audio_file")
+
+    file_hash = None
+    if uploaded_file:
+        file_hash = generate_file_hash(uploaded_file)
+    else:
+        file_hash = (request.data.get("file_hash") or "").strip().lower()
 
     run_transcription = str(request.data.get("run_transcription") or "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "y",
+        "1", "true", "yes", "y"
     }
+
     reference_text = request.data.get("reference_text")
     model_name = request.data.get("model_name", "base")
     mode = request.data.get("mode", "transcribe")
     dialect_hint = request.data.get("dialect")
 
-    if user_id and file_hash:
-        existing = AudioFiles.objects.filter(user_id=user_id, file_hash=file_hash).first()
+    if file_hash:
+        existing = AudioFiles.objects.filter(file_hash=file_hash).first()
+
         if existing and existing.audio_file:
             try:
                 if not Path(existing.audio_file.path).exists():
                     logger.warning(
-                        "Audio file missing on disk for id=%s path=%s; re-upload required",
-                        existing.id,
-                        existing.audio_file.path,
+                        "Missing file on disk for id=%s", existing.id
                     )
                     existing = None
             except Exception:
-                logger.exception("Failed to stat existing audio file for id=%s", existing.id)
+                logger.exception("File check failed for id=%s", existing.id)
                 existing = None
 
-        if existing and existing.audio_file:
+        if existing:
             transcription_result = None
+
             if run_transcription:
                 try:
                     transcription_result = create_transcription(
@@ -75,26 +93,33 @@ def addAudioFile(request):
                         dialect_hint,
                     )
                 except Exception:
-                    logger.exception("Failed to create transcription for existing audio_id=%s", existing.id)
+                    logger.exception(
+                        "Transcription failed for reused audio id=%s",
+                        existing.id,
+                    )
                     return Response(
-                        {"detail": "Transcription failed on server. Check backend logs."},
+                        {"detail": "Transcription failed."},
                         status=500,
                     )
+
             return Response(
                 {
                     "audio_file": AudioFilesSerializer(existing).data,
                     "transcription": transcription_result,
                     "reused": True,
                 },
-                status=201,
+                status=200,
             )
 
     serializer = AudioFilesSerializer(data=request.data)
+
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
 
-    audio_file = serializer.save()
+    audio_file = serializer.save(file_hash=file_hash)
+
     transcription_result = None
+
     if run_transcription and audio_file.audio_file:
         try:
             transcription_result = create_transcription(
@@ -105,17 +130,23 @@ def addAudioFile(request):
                 dialect_hint,
             )
         except Exception:
-            logger.exception("Failed to create transcription for audio_id=%s", audio_file.id)
+            logger.exception(
+                "Transcription failed for audio id=%s",
+                audio_file.id,
+            )
             return Response(
-                {"detail": "Transcription failed on server. Check backend logs."},
+                {"detail": "Transcription failed."},
                 status=500,
             )
-    response_data = {
-        "audio_file": AudioFilesSerializer(audio_file).data,
-        "transcription": transcription_result,
-        "reused": False,
-    }
-    return Response(response_data, status=201)
+
+    return Response(
+        {
+            "audio_file": AudioFilesSerializer(audio_file).data,
+            "transcription": transcription_result,
+            "reused": False,
+        },
+        status=201,
+    )
 
 
 @api_view(['PUT'])
@@ -124,12 +155,19 @@ def updateAudioFile(request, pk):
     try:
         audio_file = get_object_or_404(AudioFiles, id=pk)
     except Http404:
-        logger.error(f"AudioFile with id={pk} not found for update")
+        logger.error(f"AudioFile with id={pk} not found")
         raise
-    serializer = AudioFilesSerializer(instance=audio_file, data=request.data, partial=True)
+
+    serializer = AudioFilesSerializer(
+        instance=audio_file,
+        data=request.data,
+        partial=True,
+    )
+
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
+
     return Response(serializer.errors, status=400)
 
 
@@ -138,7 +176,8 @@ def deleteAudioFile(request, pk):
     try:
         audio_file = get_object_or_404(AudioFiles, id=pk)
     except Http404:
-        logger.error(f"AudioFile with id={pk} not found for deletion")
+        logger.error(f"AudioFile with id={pk} not found")
         raise
+
     audio_file.delete()
-    return Response('Item successfully deleted')
+    return Response({"detail": "Deleted successfully"})

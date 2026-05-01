@@ -83,10 +83,10 @@ export default function EvaluationPage() {
   const rafRef = useRef<number | null>(null);
   const [eqLevel, setEqLevel] = useState(0); // 0..1
   const [isUploading, setIsUploading] = useState(false);
-  const [isRecomputing, setIsRecomputing] = useState(false);
   const [isGeneratingStats, setIsGeneratingStats] = useState(false);
   const [stats, setStats] = useState<AsrStats | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   function resolveBackendUrl(value: string) {
     if (/^https?:\/\//i.test(value)) return value;
@@ -266,6 +266,16 @@ export default function EvaluationPage() {
     const value = (transcription?.wer_score ?? 0) * 100;
     return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
   }, [transcription?.wer_score]);
+  // Calculate readable stats for the UI
+  const readableStats = stats
+  ? {
+      accuracy: (1 - stats.wer) * 100,
+      errorRate: stats.wer * 100,
+      correctWords: stats.hits,
+      totalMistakes:
+        stats.substitutions + stats.deletions + stats.insertions,
+    }
+  : null;
 
   async function uploadAndTranscribe() {
     if (!selectedFile) {
@@ -369,47 +379,49 @@ export default function EvaluationPage() {
     }
   }
 
-  async function generateStats() {
-    if (!transcription?.id) {
-      setMessage("Generate a transcription first.");
-      return;
-    }
-    if (!referenceText.trim()) {
-      setMessage("Reference text is required.");
-      return;
-    }
-    if (!transcription.raw_text?.trim()) {
-      setMessage("No transcription output yet.");
-      return;
-    }
+async function generateStats() {
+  if (!transcription?.id) return;
 
-    setIsGeneratingStats(true);
-    setMessage("Generating stats...");
-    try {
-      const res = await fetch(
-        `${apiBase}/transcriptions/stats/${transcription.id}/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reference_text: referenceText.trim(),
-            hypothesis_text: transcription.raw_text,
-          }),
-        },
-      );
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Failed to generate stats.");
-      }
-      const payload = (await res.json()) as { stats: AsrStats };
-      setStats(payload.stats);
-      setMessage("Stats updated.");
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Failed to generate stats.");
-    } finally {
-      setIsGeneratingStats(false);
-    }
+  setLoadingStats(true);
+  setIsGeneratingStats(true);
+  setMessage("Loading evaluation...");
+
+  try {
+    const res = await fetch(
+      `${apiBase}/evaluation-results/?transcription_id=${transcription.id}`
+    );
+
+    if (!res.ok) throw new Error("Failed to fetch evaluation results");
+
+    const data = await res.json();
+
+    // If backend returns array, take first item
+    const result = Array.isArray(data) ? data[0] : data;
+
+    if (!result) throw new Error("No evaluation data found");
+
+    setStats({
+      wer: result.wer,
+      cer: result.cer,
+      mer: result.mer,
+      wil: result.wil,
+      wip: result.wip,
+      hits: result.hits,
+      substitutions: result.substitutions,
+      deletions: result.deletions,
+      insertions: result.insertions,
+      valid: true,
+    });
+
+    setMessage("Stats loaded successfully.");
+  } catch (e) {
+    console.error(e);
+    setMessage("Failed to load stats");
+  } finally {
+    setLoadingStats(false);
+    setIsGeneratingStats(false);
   }
+}
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -745,7 +757,7 @@ export default function EvaluationPage() {
               <div className="flex items-center justify-end gap-3 mt-5">
                 <button
                   onClick={generateStats}
-                  disabled={isGeneratingStats}
+                  disabled={isGeneratingStats || !transcription?.id}
                   className="rounded-lg border border-[#E7E5E4] bg-white px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-[#F5F5F4] disabled:opacity-60"
                 >
                   {isGeneratingStats ? "Generating..." : "Generate stats"}
@@ -833,63 +845,72 @@ export default function EvaluationPage() {
         </div>
       </section>
       <section className="overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-sm">
-        {stats && (
-          <div className="border-t border-[#E7E5E4] p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
-                Stats
-              </p>
-              <p className="text-xs text-[#64748B]">
-                WER {(stats.wer * 100).toFixed(2)}% · CER{" "}
-                {(stats.cer * 100).toFixed(2)}%
-              </p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-[#0F172A] md:grid-cols-4">
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-xs text-[#64748B]">MER</div>
-                <div className="font-semibold">
-                  {(stats.mer * 100).toFixed(2)}%
-                </div>
-              </div>
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-xs text-[#64748B]">WIP</div>
-                <div className="font-semibold">
-                  {(stats.wip * 100).toFixed(2)}%
-                </div>
-              </div>
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-xs text-[#64748B]">WIL</div>
-                <div className="font-semibold">
-                  {(stats.wil * 100).toFixed(2)}%
-                </div>
-              </div>
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-xs text-[#64748B]">Hits</div>
-                <div className="font-semibold">{stats.hits}</div>
-              </div>
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-[#334155] md:grid-cols-4">
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-[#64748B]">Sub</div>
-                <div className="font-semibold text-[#0F172A]">
-                  {stats.substitutions}
-                </div>
-              </div>
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-[#64748B]">Del</div>
-                <div className="font-semibold text-[#0F172A]">
-                  {stats.deletions}
-                </div>
-              </div>
-              <div className="rounded-lg bg-[#F5F5F4] p-2">
-                <div className="text-[#64748B]">Ins</div>
-                <div className="font-semibold text-[#0F172A]">
-                  {stats.insertions}
-                </div>
-              </div>
-            </div>
+  {stats && readableStats && (
+    <div className="border-t border-[#E7E5E4] p-4">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+          Evaluation Summary
+        </p>
+        <p className="text-xs text-[#64748B]">
+          Accuracy {readableStats.accuracy.toFixed(1)}%
+        </p>
+      </div>
+
+      {/* Main stats */}
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
+
+        <div className="rounded-lg bg-[#F5F5F4] p-3">
+          <div className="text-xs text-[#64748B]">Accuracy</div>
+          <div className="font-semibold text-[#0F172A]">
+            {readableStats.accuracy.toFixed(1)}%
           </div>
-        )}
+        </div>
+
+        <div className="rounded-lg bg-[#F5F5F4] p-3">
+          <div className="text-xs text-[#64748B]">Error Rate</div>
+          <div className="font-semibold text-[#0F172A]">
+            {readableStats.errorRate.toFixed(1)}%
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-[#F5F5F4] p-3">
+          <div className="text-xs text-[#64748B]">Correct Words</div>
+          <div className="font-semibold text-[#0F172A]">
+            {readableStats.correctWords}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-[#F5F5F4] p-3">
+          <div className="text-xs text-[#64748B]">Total Mistakes</div>
+          <div className="font-semibold text-[#0F172A]">
+            {readableStats.totalMistakes}
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown */}
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+
+        <div className="rounded-lg bg-[#F5F5F4] p-2">
+          <div className="text-[#64748B]">Wrong Words</div>
+          <div className="font-semibold">{stats.substitutions}</div>
+        </div>
+
+        <div className="rounded-lg bg-[#F5F5F4] p-2">
+          <div className="text-[#64748B]">Missing Words</div>
+          <div className="font-semibold">{stats.deletions}</div>
+        </div>
+
+        <div className="rounded-lg bg-[#F5F5F4] p-2">
+          <div className="text-[#64748B]">Extra Words</div>
+          <div className="font-semibold">{stats.insertions}</div>
+        </div>
+
+      </div>
+    </div>
+  )}
       </section>
     </div>
   );
