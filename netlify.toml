@@ -1,12 +1,6 @@
 [build]
-  command = "cd Frontend && npm ci && npm run build"
-  publish = "Frontend/.next"
+  command = "cd Frontend && npm ci && npm run build && npm run export"
+  publish = "Frontend/out"
 
 [build.environment]
   NODE_VERSION = "20"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-[functions]
-directory = "disabled"
