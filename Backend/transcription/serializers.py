@@ -70,6 +70,14 @@ class TranscriptionSerializer(serializers.ModelSerializer):
 
 
 class EvaluationResultsSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+
     class Meta:
         model = EvaluationResults
         fields = "__all__"
+
+    def get_username(self, obj):
+        try:
+            return obj.transcription.audio.user.username
+        except:
+            return None

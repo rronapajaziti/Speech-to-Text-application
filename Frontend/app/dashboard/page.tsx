@@ -182,19 +182,26 @@ export default async function DashboardPage() {
           <p className={`text-sm ${mutedTextClass}`}>
             Status share across all runs
           </p>
-          <div className="mt-5 flex flex-col sm:flex-row gap-6 items-center">
-            <div
-              className="h-44 w-44 rounded-full relative ring-4 ring-[#D7E3FF]"
-              style={{ background: donutBackground }}
-            >
-              <div className="absolute inset-5 rounded-full bg-white border border-[#D7E3FF] flex flex-col items-center justify-center">
-                <p className="text-xl font-bold leading-none">
+          <div className="mt-5 flex flex-col sm:flex-row gap-5 items-center">
+            {/* SLIM DONUT */}
+            <div className="relative h-40 w-40 shrink-0">
+              {/* outer ring */}
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ background: donutBackground }}
+              />
+
+              {/* inner hole (slimmer than before) */}
+              <div className="absolute inset-[22%] rounded-full bg-white border border-[#D7E3FF] flex flex-col items-center justify-center">
+                <p className="text-lg font-bold leading-none">
                   {data.workflow_factors.success_rate_percent}%
                 </p>
-                <p className={`text-xs mt-1 ${mutedTextClass}`}>Success</p>
+                <p className={`text-[11px] mt-1 ${mutedTextClass}`}>Success</p>
               </div>
             </div>
-            <div className="text-sm grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+
+            {/* SLIMMER CARDS ROW */}
+            <div className="text-sm flex flex-wrap gap-2 w-full">
               {[
                 {
                   label: "Completed",
@@ -223,18 +230,17 @@ export default async function DashboardPage() {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-lg border border-[#D7E3FF] bg-white px-3 py-2"
+                  className="flex-1 min-w-[140px] rounded-md border border-[#D7E3FF] bg-white px-2 py-2"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="flex items-center gap-2 font-medium">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${item.color}`}
-                      />
+                    <p className="flex items-center gap-1 font-medium text-sm">
+                      <span className={`h-2 w-2 rounded-full ${item.color}`} />
                       {item.label}
                     </p>
-                    <p>{item.percent}%</p>
+                    <p className="text-sm">{item.percent}%</p>
                   </div>
-                  <p className={`text-xs mt-1 ${mutedTextClass}`}>
+
+                  <p className={`text-[11px] mt-1 ${mutedTextClass}`}>
                     {item.count} samples
                   </p>
                 </div>

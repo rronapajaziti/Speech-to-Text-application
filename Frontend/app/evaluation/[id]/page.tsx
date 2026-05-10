@@ -26,13 +26,15 @@ type EvaluationDetail = {
   gender: string | null;
   age: number | null;
   evaluation_date: string;
+  username: string;
 };
 
 function normalizeAlignmentType(
   value: string | null | undefined,
 ): "correct" | "wrong" | "missing" | "extra" {
   const type = (value || "").toLowerCase().trim();
-  if (type === "correct" || type === "hit" || type === "equal") return "correct";
+  if (type === "correct" || type === "hit" || type === "equal")
+    return "correct";
   if (
     type === "wrong" ||
     type === "substitution" ||
@@ -62,9 +64,7 @@ export default function EvaluationDetailsPage() {
 
     async function fetchData() {
       try {
-        const res = await fetch(
-          `${apiBase}/evaluation-results/read/${id}/`
-        );
+        const res = await fetch(`${apiBase}/evaluation-results/read/${id}/`);
 
         if (!res.ok) throw new Error("Failed to load evaluation");
 
@@ -81,19 +81,11 @@ export default function EvaluationDetailsPage() {
   }, [id, apiBase]);
 
   if (loading) {
-    return (
-      <div className="center">
-        Loading evaluation...
-      </div>
-    );
+    return <div className="center">Loading evaluation...</div>;
   }
 
   if (!data) {
-    return (
-      <div className="center">
-        Evaluation not found.
-      </div>
-    );
+    return <div className="center">Evaluation not found.</div>;
   }
 
   const werPercent = (data.wer * 100).toFixed(2);
@@ -113,16 +105,11 @@ export default function EvaluationDetailsPage() {
 
   return (
     <div className="page">
-
       {/* HEADER */}
       <div className="header">
         <div>
-          <div className="breadcrumb">
-            Evaluation / Detail
-          </div>
-          <h1 className="title">
-            Evaluation #{data.id}
-          </h1>
+          <div className="breadcrumb">Evaluation / Detail</div>
+          <h1 className="title">Evaluation #{data.id}</h1>
         </div>
 
         <Link href="/evaluation/history" className="backBtn">
@@ -132,7 +119,6 @@ export default function EvaluationDetailsPage() {
 
       {/* TOP GRID */}
       <div className="topGrid">
-
         {/* METADATA */}
         <div className="card">
           <h3 className="cardTitle">Metadata</h3>
@@ -142,6 +128,10 @@ export default function EvaluationDetailsPage() {
             <b>{data.transcription}</b>
           </div>
 
+          <div className="row">
+            <span>Name</span>
+            <b>{data.username ?? "N/A"}</b>
+          </div>
           <div className="row">
             <span>Age</span>
             <b>{data.age ?? "N/A"}</b>
@@ -159,9 +149,7 @@ export default function EvaluationDetailsPage() {
 
           <div className="row">
             <span>Date</span>
-            <b>
-              {new Date(data.evaluation_date).toLocaleString()}
-            </b>
+            <b>{new Date(data.evaluation_date).toLocaleString()}</b>
           </div>
         </div>
 
@@ -170,12 +158,8 @@ export default function EvaluationDetailsPage() {
           <h3 className="cardTitle">Performance</h3>
 
           <div className="centerBox">
-            <div className="werValue">
-              {werPercent}%
-            </div>
-            <div className="werLabel">
-              Word Error Rate
-            </div>
+            <div className="werValue">{werPercent}%</div>
+            <div className="werLabel">Word Error Rate</div>
           </div>
 
           <div className="progress">
@@ -191,22 +175,18 @@ export default function EvaluationDetailsPage() {
             {Number(werPercent) < 15
               ? "Good performance"
               : Number(werPercent) < 30
-              ? "Medium performance"
-              : "Needs improvement"}
+                ? "Medium performance"
+                : "Needs improvement"}
           </p>
         </div>
       </div>
 
       {/* SUMMARY */}
       <div className="summary-card">
-
-        <h3 className="section-title">
-          Evaluation Summary
-        </h3>
+        <h3 className="section-title">Evaluation Summary</h3>
 
         {/* KPI CARDS */}
         <div className="kpi-grid">
-
           <div className="kpi-card">
             <div className="kpi-label">Accuracy</div>
             <div className="kpi-value">
@@ -223,23 +203,17 @@ export default function EvaluationDetailsPage() {
 
           <div className="kpi-card">
             <div className="kpi-label">Correct Words</div>
-            <div className="kpi-value">
-              {readableStats.correctWords}
-            </div>
+            <div className="kpi-value">{readableStats.correctWords}</div>
           </div>
 
           <div className="kpi-card">
             <div className="kpi-label">Total Mistakes</div>
-            <div className="kpi-value">
-              {readableStats.totalMistakes}
-            </div>
+            <div className="kpi-value">{readableStats.totalMistakes}</div>
           </div>
-
         </div>
 
         {/* BREAKDOWN */}
         <div className="breakdown-grid">
-
           <div className="mini-card">
             Wrong Words: <b>{data.substitutions}</b>
           </div>
@@ -251,7 +225,6 @@ export default function EvaluationDetailsPage() {
           <div className="mini-card">
             Extra Words: <b>{data.insertions}</b>
           </div>
-
         </div>
       </div>
 
@@ -278,7 +251,9 @@ export default function EvaluationDetailsPage() {
                 );
               })
             ) : (
-              <span className="text-[#64748B]">No alignment data available.</span>
+              <span className="text-[#64748B]">
+                No alignment data available.
+              </span>
             )}
           </div>
         </div>

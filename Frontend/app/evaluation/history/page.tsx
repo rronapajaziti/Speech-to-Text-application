@@ -13,6 +13,7 @@ type BackendEvaluationResult = {
   evaluation_date?: string | null;
   created_at?: string | null;
   model_name?: string | null;
+  username?: string | null;
 };
 
 export default function EvaluationHistoryPage() {
@@ -33,8 +34,12 @@ export default function EvaluationHistoryPage() {
         const list = (await res.json()) as BackendEvaluationResult[];
 
         const sorted = [...list].sort((a, b) => {
-          const aDate = new Date(a.evaluation_date || a.created_at || 0).getTime();
-          const bDate = new Date(b.evaluation_date || b.created_at || 0).getTime();
+          const aDate = new Date(
+            a.evaluation_date || a.created_at || 0,
+          ).getTime();
+          const bDate = new Date(
+            b.evaluation_date || b.created_at || 0,
+          ).getTime();
           return bDate - aDate;
         });
 
@@ -99,6 +104,7 @@ export default function EvaluationHistoryPage() {
                 <tr className="border-b border-[#d6dee8] text-xs text-[#64748B] bg-[#fafafa]">
                   <th className="px-2 py-2 text-left">Transcription ID</th>
                   <th className="px-2 py-2 text-left">Model</th>
+                  <th className="px-2 py-2 text-left">Username</th>
                   <th className="px-2 py-2 text-left">Age</th>
                   <th className="px-2 py-2 text-left">Gender</th>
                   <th className="px-2 py-2 text-left">Dialect</th>
@@ -117,6 +123,7 @@ export default function EvaluationHistoryPage() {
                     >
                       <td className="px-3 py-3">#{r.transcription}</td>
                       <td className="px-3 py-3">{r.model_name ?? "N/A"}</td>
+                      <td className="px-3 py-3">{r.username ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.age ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.gender ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.dialect || "N/A"}</td>

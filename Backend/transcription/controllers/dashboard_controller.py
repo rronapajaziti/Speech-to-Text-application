@@ -26,7 +26,14 @@ def getDashboardStats(request):
     )
     low_wer_count = Transcription.objects.filter(wer_score__isnull=False, wer_score__lte=0.2).count()
     high_wer_count = Transcription.objects.filter(wer_score__isnull=False, wer_score__gte=0.4).count()
-    with_reference_count = Transcription.objects.exclude(reference_text__isnull=True).exclude(reference_text="").count()
+    with_reference_count = (
+    Transcription.objects
+    .exclude(reference_text__isnull=True)
+    .exclude(reference_text="")
+    .values("reference_text")
+    .distinct()
+    .count()
+)
 
     low_wer_ratio = (low_wer_count / with_reference_count * 100) if with_reference_count else 0.0
     high_wer_ratio = (high_wer_count / with_reference_count * 100) if with_reference_count else 0.0

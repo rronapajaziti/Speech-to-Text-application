@@ -868,6 +868,7 @@ export default function EvaluationPage() {
                         </option>
                         <option value="sq_prishtina">Prishtina Accent</option>
                         <option value="sq_south_kosovo">Ferizaj Accent</option>
+                        <option value="sq_south_kosovo">Kaçanik Accent</option>
                       </optgroup>
 
                       {/* ===================== ENGLISH (KOSOVO SPEAKERS) ===================== */}
@@ -983,7 +984,7 @@ export default function EvaluationPage() {
             <div className="grid gap-4 p-4 md:grid-rows-2 mt-6">
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
-                  Reference text
+                  Reference text *
                 </p>
                 <textarea
                   value={referenceText}

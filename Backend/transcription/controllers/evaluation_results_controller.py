@@ -38,24 +38,12 @@ def getEvaluationResult(request, pk):
 
     serializer = EvaluationResultsSerializer(evaluation_result)
 
+    data = serializer.data
+
     return Response({
-        "id": evaluation_result.id,
-        "transcription": evaluation_result.transcription.id,
-        "wer": evaluation_result.wer,
-        "cer": evaluation_result.cer,
-        "mer": evaluation_result.mer,
-        "wil": evaluation_result.wil,
-        "wip": evaluation_result.wip,
-        "substitutions": evaluation_result.substitutions,
-        "deletions": evaluation_result.deletions,
-        "insertions": evaluation_result.insertions,
-        "alignment": evaluation_result.alignment or [],
-        "gender": evaluation_result.gender,
-        "dialect": evaluation_result.dialect,
-        "age": evaluation_result.age,
-        # Keep both keys for frontend compatibility
-        "created_at": evaluation_result.created_at,
+        **data,
         "evaluation_date": evaluation_result.created_at,
+        "model_name": evaluation_result.transcription.model_name if evaluation_result.transcription else None,
     })
 
 @api_view(['POST'])
@@ -113,8 +101,21 @@ def updateEvaluationResult(request, pk):
 def deleteEvaluationResult(request, pk):
     try:
         evaluation_result = get_object_or_404(EvaluationResults, id=pk)
+
+        transcription = evaluation_result.transcription
+        audio = transcription.audio if transcription else None
+
+        # delete in correct order (child → parent)
+        evaluation_result.delete()
+
+        if transcription:
+            transcription.delete()
+
+        if audio:
+            audio.delete()
+
+        return Response({"message": "Evaluation, transcription, and audio deleted successfully"})
+
     except Http404:
         logger.error(f"EvaluationResult with id={pk} not found for deletion")
         raise
-    evaluation_result.delete()
-    return Response('Item successfully deleted')
