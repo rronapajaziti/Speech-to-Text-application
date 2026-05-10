@@ -10,27 +10,47 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
+
+import dj_database_url
+from dotenv import load_dotenv
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+
+def get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_list_env(name: str, default: list[str]) -> list[str]:
+    value = os.getenv(name)
+    if not value:
+        return default
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-+_o4r*81=jb)&07++=h#$l622@vk5+4t18($zd8x-29l94fq#4'
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-insecure-key-change-me")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = get_bool_env("DEBUG", default=True)
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = get_list_env("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-# CORS (dev)
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS
+CORS_ALLOWED_ORIGINS = get_list_env("CORS_ALLOWED_ORIGINS", default=[])
+CORS_ALLOW_ALL_ORIGINS = not CORS_ALLOWED_ORIGINS and DEBUG
 
 # Application definition
 
@@ -91,12 +111,18 @@ SIMPLE_JWT = {
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation

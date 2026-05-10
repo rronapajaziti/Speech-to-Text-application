@@ -4,3 +4,6 @@ django-cors-headers
 djangorestframework-simplejwt
 google-cloud-speech
 python-dotenv
+gunicorn
+dj-database-url
+psycopg[binary]
