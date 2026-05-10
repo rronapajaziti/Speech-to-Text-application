@@ -9,3 +9,5 @@ dj-database-url
 psycopg[binary]
 pydub
 SpeechRecognition
+jiwer
+whitenoise

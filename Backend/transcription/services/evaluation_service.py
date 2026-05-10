@@ -1,8 +1,6 @@
 import re
 from difflib import SequenceMatcher
 
-from ..utils.metrics import calculate_asr_stats
-
 NUMBER_WORDS = {
     "zero": "0",
     "one": "1",
@@ -72,6 +70,8 @@ def _build_alignment(reference_text: str, hypothesis_text: str) -> list[dict]:
 
 
 def evaluate_transcription(reference_text, hypothesis_text):
+    from ..utils.metrics import calculate_asr_stats
+
     if not reference_text or not hypothesis_text:
         return {
             "wer": 1.0,
