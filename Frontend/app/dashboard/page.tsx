@@ -50,14 +50,15 @@ type DashboardStats = {
   }>;
 };
 
+export const dynamic = "force-static";
+export const revalidate = 300;
+
 async function getDashboardStats(): Promise<DashboardStats | null> {
   const apiBase = (
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
   try {
-    const response = await fetch(`${apiBase}/dashboard/stats/`, {
-      cache: "no-store",
-    });
+    const response = await fetch(`${apiBase}/dashboard/stats/`);
     if (!response.ok) {
       return null;
     }
