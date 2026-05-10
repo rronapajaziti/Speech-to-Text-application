@@ -7,3 +7,5 @@ python-dotenv
 gunicorn
 dj-database-url
 psycopg[binary]
+pydub
+SpeechRecognition
