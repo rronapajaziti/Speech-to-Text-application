@@ -32,14 +32,26 @@ def getDashboardStats(request):
     high_wer_ratio = (high_wer_count / with_reference_count * 100) if with_reference_count else 0.0
 
     evaluation_aggregates = EvaluationResults.objects.aggregate(
-        average_accuracy=Avg("accuracy"),
         average_error_rate=Avg("wer")
     )
+    average_error_rate = float(evaluation_aggregates["average_error_rate"] or 0.0)
+    average_accuracy = max(0.0, 1.0 - average_error_rate)
 
     model_distribution = (
         Transcription.objects.exclude(model_name="")
         .values("model_name")
         .annotate(total=Count("id"))
+        .order_by("-total")
+    )
+    model_performance = (
+        Transcription.objects.exclude(model_name="")
+        .values("model_name")
+        .annotate(
+            total=Count("id"),
+            avg_wer=Avg("wer_score"),
+            best_wer=Min("wer_score"),
+            worst_wer=Max("wer_score"),
+        )
         .order_by("-total")
     )
 
@@ -68,8 +80,8 @@ def getDashboardStats(request):
             ),
         },
         "robustness_and_accuracy": {
-            "average_accuracy_score": round(evaluation_aggregates["average_accuracy"] or 0.0, 4),
-            "average_error_rate": round(evaluation_aggregates["average_error_rate"] or 0.0, 4),
+            "average_accuracy_score": round(average_accuracy, 4),
+            "average_error_rate": round(average_error_rate, 4),
             "low_wer_ratio_percent": round(low_wer_ratio, 2),
             "high_wer_ratio_percent": round(high_wer_ratio, 2),
         },
@@ -83,6 +95,25 @@ def getDashboardStats(request):
             "unique_models_tested": len(model_distribution),
             "unique_languages_tested": len(language_distribution),
             "model_distribution": list(model_distribution),
+            "model_performance": [
+                {
+                    "model_name": item["model_name"] or "unknown",
+                    "total": item["total"],
+                    "avg_wer": round(item["avg_wer"], 4)
+                    if item["avg_wer"] is not None
+                    else None,
+                    "best_wer": round(item["best_wer"], 4)
+                    if item["best_wer"] is not None
+                    else None,
+                    "worst_wer": round(item["worst_wer"], 4)
+                    if item["worst_wer"] is not None
+                    else None,
+                    "avg_accuracy": round(max(0.0, 1.0 - item["avg_wer"]), 4)
+                    if item["avg_wer"] is not None
+                    else None,
+                }
+                for item in model_performance
+            ],
             "language_distribution": list(language_distribution),
             "noise_metadata_available": False,
             "dialect_metadata_available": False,

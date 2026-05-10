@@ -24,6 +24,14 @@ type DashboardStats = {
     unique_models_tested: number;
     unique_languages_tested: number;
     model_distribution: Array<{ model_name: string; total: number }>;
+    model_performance: Array<{
+      model_name: string;
+      total: number;
+      avg_wer: number | null;
+      best_wer: number | null;
+      worst_wer: number | null;
+      avg_accuracy: number | null;
+    }>;
     language_distribution: Array<{
       audio__language__language_name: string;
       audio__language__code: string;
@@ -296,20 +304,32 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={`p-6 ${cardClass}`}>
-          <h2 className="text-lg font-semibold">Model Coverage Ranking</h2>
+          <h2 className="text-lg font-semibold">Model Performance</h2>
           <p className={`text-sm ${mutedTextClass}`}>
-            Top ASR models by usage count
+            Compare quality and usage for each model
           </p>
           <div className="mt-4 flex flex-col gap-3 text-sm">
-            {data.variation_coverage.model_distribution
-              .slice(0, 6)
+            {data.variation_coverage.model_performance
+              .slice(0, 8)
               .map((model) => {
-                const percent = toPercent(model.total, total);
+                const percent = toPercent(model.total, total || 1);
                 return (
                   <div key={model.model_name || "unknown"}>
-                    <div className="flex justify-between">
-                      <span>{model.model_name || "unknown"}</span>
-                      <span>{model.total}</span>
+                    <div className="flex justify-between gap-3">
+                      <span className="font-medium">{model.model_name || "unknown"}</span>
+                      <span>{model.total} runs</span>
+                    </div>
+                    <div className="mt-1 grid grid-cols-2 gap-x-4 text-xs text-[#475569]">
+                      <span>
+                        Avg WER:{" "}
+                        {model.avg_wer === null ? "N/A" : model.avg_wer.toFixed(4)}
+                      </span>
+                      <span>
+                        Avg Accuracy:{" "}
+                        {model.avg_accuracy === null
+                          ? "N/A"
+                          : `${(model.avg_accuracy * 100).toFixed(2)}%`}
+                      </span>
                     </div>
                     <div className="h-2 mt-1 rounded bg-[#D7E3FF] overflow-hidden">
                       <div
@@ -320,7 +340,7 @@ export default async function DashboardPage() {
                   </div>
                 );
               })}
-            {data.variation_coverage.model_distribution.length === 0 && (
+            {data.variation_coverage.model_performance.length === 0 && (
               <p>No model data yet.</p>
             )}
           </div>

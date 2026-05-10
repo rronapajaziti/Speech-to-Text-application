@@ -10,7 +10,9 @@ type BackendEvaluationResult = {
   dialect: string | null;
   gender: string | null;
   age: number | null;
-  evaluation_date: string;
+  evaluation_date?: string | null;
+  created_at?: string | null;
+  model_name?: string | null;
 };
 
 export default function EvaluationHistoryPage() {
@@ -20,43 +22,59 @@ export default function EvaluationHistoryPage() {
   const [rows, setRows] = useState<BackendEvaluationResult[]>([]);
 
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  async function loadRows() {
+    async function loadRows() {
+      try {
+        const res = await fetch(`${apiBase}/evaluation-results/`);
+        if (!res.ok || cancelled) return;
+
+        const list = (await res.json()) as BackendEvaluationResult[];
+
+        const sorted = [...list].sort((a, b) => {
+          const aDate = new Date(a.evaluation_date || a.created_at || 0).getTime();
+          const bDate = new Date(b.evaluation_date || b.created_at || 0).getTime();
+          return bDate - aDate;
+        });
+
+        if (!cancelled) setRows(sorted);
+      } catch {
+        // ignore errors
+      }
+    }
+
+    void loadRows();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase]);
+  async function deleteResult(id: number) {
+    const confirmDelete = confirm(
+      "Are you sure you want to delete this result?",
+    );
+    if (!confirmDelete) return;
+
     try {
-      const res = await fetch(`${apiBase}/evaluation-results/`);
-      if (!res.ok || cancelled) return;
+      const res = await fetch(`${apiBase}/evaluation-results/delete/${id}/`, {
+        method: "DELETE",
+      });
 
-      const list = (await res.json()) as BackendEvaluationResult[];
+      if (!res.ok) throw new Error("Delete failed");
 
-      const sorted = [...list].sort(
-        (a, b) =>
-          new Date(b.evaluation_date).getTime() -
-          new Date(a.evaluation_date).getTime()
-      );
-
-      if (!cancelled) setRows(sorted);
-    } catch {
-      // ignore errors
+      setRows((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete result");
     }
   }
-
-  void loadRows();
-
-  return () => {
-    cancelled = true;
-  };
-}, [apiBase]);
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {/* Header */}
       <div className="flex h-14 items-center justify-between rounded-xl border border-[#E7E5E4] bg-white px-5">
         <div className="text-sm text-[#64748B]">
           Project <span className="mx-2">/</span>
-          <span className="font-medium text-[#0F172A]">
-            Evaluation History
-          </span>
+          <span className="font-medium text-[#0F172A]">Evaluation History</span>
         </div>
 
         <Link
@@ -79,6 +97,7 @@ export default function EvaluationHistoryPage() {
               <thead>
                 <tr className="border-b border-[#d6dee8] text-xs text-[#64748B] bg-[#fafafa]">
                   <th className="px-2 py-2 text-left">Transcription ID</th>
+                  <th className="px-2 py-2 text-left">Model</th>
                   <th className="px-2 py-2 text-left">Age</th>
                   <th className="px-2 py-2 text-left">Gender</th>
                   <th className="px-2 py-2 text-left">Dialect</th>
@@ -92,27 +111,36 @@ export default function EvaluationHistoryPage() {
                 {rows.length ? (
                   rows.map((r) => (
                     <tr
-  key={r.id}
-  className="border-b border-[#e2e8f0] hover:bg-[#f8fafc] transition"
->
+                      key={r.id}
+                      className="border-b border-[#e2e8f0] hover:bg-[#f8fafc] transition"
+                    >
                       <td className="px-3 py-3">#{r.transcription}</td>
+                      <td className="px-3 py-3">{r.model_name ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.age ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.gender ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.dialect || "N/A"}</td>
+                      <td className="px-3 py-3">{(r.wer * 100).toFixed(2)}%</td>
                       <td className="px-3 py-3">
-                        {(r.wer * 100).toFixed(2)}%
-                      </td>
-                      <td className="px-3 py-3">
-                        {new Date(r.evaluation_date).toLocaleString()}
+                        {new Date(
+                          r.evaluation_date || r.created_at || 0,
+                        ).toLocaleString()}
                       </td>
 
                       <td className="px-3 py-3">
-                        <Link
-                          href={`/evaluation/${r.id}`}
-                          className="rounded-md border border-[#E7E5E4] px-2 py-1 text-xs hover:bg-[#F5F5F4]"
-                        >
-                          View
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/evaluation/${r.id}`}
+                            className="inline-flex items-center justify-center rounded-md border border-[#E7E5E4] px-2.5 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-[#F5F5F4]"
+                          >
+                            View
+                          </Link>
+                          <button
+                            onClick={() => deleteResult(r.id)}
+                            className="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

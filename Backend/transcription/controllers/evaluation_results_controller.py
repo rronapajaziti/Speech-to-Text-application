@@ -11,14 +11,26 @@ logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 def getEvaluationResults(request):
-    qs = EvaluationResults.objects.all()
+    qs = EvaluationResults.objects.select_related("transcription").all()
 
     transcription_id = request.query_params.get("transcription_id")
     if transcription_id:
         qs = qs.filter(transcription_id=transcription_id)
 
     serializer = EvaluationResultsSerializer(qs, many=True)
-    return Response(serializer.data)
+    payload = []
+    for row, item in zip(qs, serializer.data):
+        created_at = item.get("created_at")
+        model_name = row.transcription.model_name if row.transcription else None
+        payload.append(
+            {
+                **item,
+                "model_name": model_name,
+                # compatibility key used by frontend history page
+                "evaluation_date": created_at,
+            }
+        )
+    return Response(payload)
 
 @api_view(['GET'])
 def getEvaluationResult(request, pk):
@@ -37,10 +49,13 @@ def getEvaluationResult(request, pk):
         "substitutions": evaluation_result.substitutions,
         "deletions": evaluation_result.deletions,
         "insertions": evaluation_result.insertions,
+        "alignment": evaluation_result.alignment or [],
         "gender": evaluation_result.gender,
         "dialect": evaluation_result.dialect,
         "age": evaluation_result.age,
-        "evaluation_date": evaluation_result.evaluation_date,
+        # Keep both keys for frontend compatibility
+        "created_at": evaluation_result.created_at,
+        "evaluation_date": evaluation_result.created_at,
     })
 
 @api_view(['POST'])
@@ -72,10 +87,11 @@ def addEvaluationResult(request):
         wil=None,
         wip=None,
 
-        hits=0,
+        hits=result.get("hits", 0),
         substitutions=result["substitutions"],
         deletions=result["deletions"],
         insertions=result["insertions"],
+        alignment=result.get("alignment", []),
     )
 
     return Response(EvaluationResultsSerializer(evaluation).data, status=201)

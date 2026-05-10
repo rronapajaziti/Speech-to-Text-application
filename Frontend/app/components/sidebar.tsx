@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import "./sidebar.css";
 import { LayoutDashboard, Mic, BarChart3, History } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const [openMenu, setOpenMenu] = useState<number | null>(1);
 
@@ -111,6 +112,17 @@ export default function Sidebar() {
           <p className="user-email">rrona.pajaziti@...</p>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.removeItem("access");
+          localStorage.removeItem("refresh");
+          router.replace("/login");
+        }}
+        className="mt-3 rounded-md border border-[#E7E5E4] px-3 py-2 text-xs font-semibold text-[#334155] hover:bg-[#F5F5F4]"
+      >
+        Logout
+      </button>
     </aside>
   );
 }

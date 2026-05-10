@@ -17,12 +17,35 @@ type EvaluationDetail = {
   substitutions: number;
   deletions: number;
   insertions: number;
+  alignment?: {
+    word: string | null;
+    type: "correct" | "wrong" | "missing" | "extra";
+  }[];
 
   dialect: string | null;
   gender: string | null;
   age: number | null;
   evaluation_date: string;
 };
+
+function normalizeAlignmentType(
+  value: string | null | undefined,
+): "correct" | "wrong" | "missing" | "extra" {
+  const type = (value || "").toLowerCase().trim();
+  if (type === "correct" || type === "hit" || type === "equal") return "correct";
+  if (
+    type === "wrong" ||
+    type === "substitution" ||
+    type === "substitute" ||
+    type === "replace"
+  ) {
+    return "wrong";
+  }
+  if (type === "missing" || type === "deletion" || type === "delete") {
+    return "missing";
+  }
+  return "extra";
+}
 
 export default function EvaluationDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -228,6 +251,35 @@ export default function EvaluationDetailsPage() {
             Extra Words: <b>{data.insertions}</b>
           </div>
 
+        </div>
+      </div>
+
+      <div className="summary-card">
+        <h3 className="section-title">Transcription output</h3>
+        <div className="mt-3 h-56 overflow-auto rounded-xl border border-[#E7E5E4] bg-[#FAFAF9] p-4 text-base leading-8">
+          <div className="flex flex-wrap gap-x-2 gap-y-2">
+            {Array.isArray(data.alignment) && data.alignment.length > 0 ? (
+              data.alignment.map((item, idx) => {
+                const type = normalizeAlignmentType(item.type);
+                const colorClass =
+                  type === "correct"
+                    ? "bg-[#d9ead3] text-gray-900 rounded-md px-1.5 py-0.5"
+                    : type === "wrong"
+                      ? "bg-[#f4cccc] text-gray-900 rounded-md px-1.5 py-0.5 font-semibold"
+                      : type === "missing"
+                        ? "bg-[#fff2cc] text-gray-900 rounded-md px-1.5 py-0.5 font-semibold"
+                        : "bg-[#d0e0e3] text-gray-900 rounded-md px-1.5 py-0.5 font-semibold";
+
+                return (
+                  <span key={idx} className={`${colorClass} inline-block`}>
+                    {item.word ?? "[missing]"}
+                  </span>
+                );
+              })
+            ) : (
+              <span className="text-[#64748B]">No alignment data available.</span>
+            )}
+          </div>
         </div>
       </div>
     </div>

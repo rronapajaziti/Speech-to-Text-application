@@ -1,5 +1,5 @@
 {
-  "python.languageServer": "Pylance",
+  "python.languageServer": "None",
   "python-envs.defaultEnvManager": "ms-python.python:system",
   "editor.semanticHighlighting.enabled": true
 }

@@ -39,16 +39,40 @@ type BackendUser = {
 
 type AsrStats = {
   wer: number;
+  cer: number;
   mer: number;
   wil: number;
   wip: number;
-  cer: number;
   hits: number;
   substitutions: number;
   deletions: number;
   insertions: number;
   valid: boolean;
+  alignment: {
+    word: string | null;
+    type: "correct" | "wrong" | "missing" | "extra";
+  }[];
 };
+
+function normalizeAlignmentType(
+  value: string | null | undefined,
+): "correct" | "wrong" | "missing" | "extra" {
+  const type = (value || "").toLowerCase().trim();
+  if (type === "correct" || type === "hit" || type === "equal")
+    return "correct";
+  if (
+    type === "wrong" ||
+    type === "substitution" ||
+    type === "substitute" ||
+    type === "replace"
+  ) {
+    return "wrong";
+  }
+  if (type === "missing" || type === "deletion" || type === "delete") {
+    return "missing";
+  }
+  return "extra";
+}
 
 export default function EvaluationPage() {
   const apiBase =
@@ -59,6 +83,10 @@ export default function EvaluationPage() {
   // const token = localStorage.getItem("access");
   const [userId, setUserId] = useState<number>(1);
   const [users, setUsers] = useState<BackendUser[]>([]);
+  const [newUsername, setNewUsername] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [languageId, setLanguageId] = useState<number>(1);
   const [languageLabel, setLanguageLabel] = useState<string>("Auto");
   const [languages, setLanguages] = useState<BackendLanguage[]>([]);
@@ -142,13 +170,17 @@ export default function EvaluationPage() {
     return () => URL.revokeObjectURL(url);
   }, [selectedFile]);
 
+  async function loadUsersFromApi(): Promise<BackendUser[]> {
+    const res = await fetch(`${apiBase}/users/public/`);
+    if (!res.ok) return [];
+    return (await res.json()) as BackendUser[];
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function loadUsers() {
       try {
-        const res = await fetch(`${apiBase}/users/public/`);
-        if (!res.ok) return;
-        const list = (await res.json()) as BackendUser[];
+        const list = await loadUsersFromApi();
         if (cancelled) return;
         setUsers(list);
         if (list.length && !list.some((u) => u.id === userId)) {
@@ -163,6 +195,47 @@ export default function EvaluationPage() {
       cancelled = true;
     };
   }, [apiBase, userId]);
+
+  async function createUser() {
+    const username = newUsername.trim();
+    const password = newPassword.trim();
+    const email = newEmail.trim();
+    if (!username || !password) {
+      setMessage("Username and password are required to create a user.");
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      const res = await fetch(`${apiBase}/users/create/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          password,
+          email: email || "",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Failed to create user.");
+      }
+
+      const list = await loadUsersFromApi();
+      setUsers(list);
+      const created = list.find((u) => u.username === username);
+      if (created) setUserId(created.id);
+
+      setNewUsername("");
+      setNewEmail("");
+      setNewPassword("");
+      setMessage(`User "${username}" created.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to create user.");
+    } finally {
+      setIsCreatingUser(false);
+    }
+  }
 
   async function loadLanguages(): Promise<BackendLanguage[]> {
     if (languages.length) return languages;
@@ -233,49 +306,27 @@ export default function EvaluationPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadLanguages() {
-      try {
-        const res = await fetch(`${apiBase}/languages/`);
-        if (!res.ok) return;
-        const list = (await res.json()) as BackendLanguage[];
-        const browser = (navigator.language || "").toLowerCase(); // e.g. en-us
-        const browserBase = browser.split("-")[0];
-
-        const pick =
-          list.find((l) => l.code.toLowerCase() === browser) ??
-          list.find((l) => l.code.toLowerCase() === browserBase) ??
-          list.find((l) => l.id === 1) ??
-          list[0];
-
-        if (!pick || cancelled) return;
-        setLanguageId(pick.id);
-        setLanguageLabel(`${pick.language_name} (${pick.code})`);
-      } catch {
-        // keep default
-      }
-    }
-    void loadLanguages();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase]);
-
   const werPercent = useMemo(() => {
-    const value = (transcription?.wer_score ?? 0) * 100;
+    const value = (stats?.wer ?? 0) * 100;
     return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-  }, [transcription?.wer_score]);
+  }, [stats?.wer]);
   // Calculate readable stats for the UI
   const readableStats = stats
-  ? {
-      accuracy: (1 - stats.wer) * 100,
-      errorRate: stats.wer * 100,
-      correctWords: stats.hits,
-      totalMistakes:
-        stats.substitutions + stats.deletions + stats.insertions,
-    }
-  : null;
+    ? (() => {
+        const total =
+          stats.hits + stats.substitutions + stats.deletions + stats.insertions;
+
+        const accuracy = total > 0 ? (stats.hits / total) * 100 : 0;
+
+        return {
+          accuracy,
+          errorRate: (stats.wer ?? 0) * 100,
+          correctWords: stats.hits,
+          totalMistakes:
+            stats.substitutions + stats.deletions + stats.insertions,
+        };
+      })()
+    : null;
 
   async function uploadAndTranscribe() {
     if (!selectedFile) {
@@ -310,7 +361,13 @@ export default function EvaluationPage() {
       formData.append("reference_text", referenceText.trim());
       formData.append("mode", "evaluate");
       formData.append("dialect", dialect);
-      formData.append("model_name", modelName);
+      const modelMap: Record<string, string> = {
+        google: "google",
+        base: "whisper-base",
+        small: "whisper-small",
+        medium: "whisper-medium",
+      };
+      formData.append("model_name", modelMap[modelName] ?? modelName);
 
       const response = await fetch(`${apiBase}/audio-files/create/`, {
         method: "POST",
@@ -326,12 +383,6 @@ export default function EvaluationPage() {
         transcription?: BackendTranscription | null;
         reused?: boolean;
       };
-      console.log("Sending to backend:", {
-        languages,
-        gender,
-        dialect,
-        age,
-      });
       const next = payload?.transcription as BackendTranscription | null;
       if (!next) {
         throw new Error("Backend did not return transcription data.");
@@ -345,7 +396,7 @@ export default function EvaluationPage() {
         `Transcription #${next.id} ready.${payload?.reused ? " (reused saved audio)" : ""}`,
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Request failed.");
+      setMessage(error instanceof Error ? error.message : "Upload failed.");
     } finally {
       setIsUploading(false);
     }
@@ -371,57 +422,94 @@ export default function EvaluationPage() {
         throw new Error(err);
       }
 
-      const data = await res.json();
-      console.log("Evaluation saved:", data);
+      const data = (await res.json()) as {
+        wer: number;
+        cer: number;
+        mer: number | null;
+        wil: number | null;
+        wip: number | null;
+        hits: number;
+        substitutions: number;
+        deletions: number;
+        insertions: number;
+        alignment?: { word?: string | null; type?: string | null }[];
+      };
+
+      setStats({
+        wer: data.wer,
+        cer: data.cer,
+        mer: data.mer ?? 0,
+        wil: data.wil ?? 0,
+        wip: data.wip ?? 0,
+        hits: data.hits ?? 0,
+        substitutions: data.substitutions ?? 0,
+        deletions: data.deletions ?? 0,
+        insertions: data.insertions ?? 0,
+        valid: true,
+        alignment: Array.isArray(data.alignment)
+          ? data.alignment.map((item) => ({
+              word: item.word ?? null,
+              type: normalizeAlignmentType(item.type),
+            }))
+          : [],
+      });
     } catch (err) {
       console.error(err);
       setMessage("Failed to save evaluation");
     }
   }
 
-async function generateStats() {
-  if (!transcription?.id) return;
+  async function generateStats() {
+    if (!transcription?.id || loadingStats) return;
 
-  setLoadingStats(true);
-  setIsGeneratingStats(true);
-  setMessage("Loading evaluation...");
+    setLoadingStats(true);
+    setIsGeneratingStats(true);
+    setMessage("Loading evaluation...");
 
-  try {
-    const res = await fetch(
-      `${apiBase}/evaluation-results/?transcription_id=${transcription.id}`
-    );
+    try {
+      const res = await fetch(
+        `${apiBase}/evaluation-results/?transcription_id=${transcription.id}`,
+      );
 
-    if (!res.ok) throw new Error("Failed to fetch evaluation results");
+      if (!res.ok) throw new Error("Failed to fetch evaluation results");
 
-    const data = await res.json();
+      const data = await res.json();
 
-    // If backend returns array, take first item
-    const result = Array.isArray(data) ? data[0] : data;
+      // If backend returns array, take first item
+      const result = Array.isArray(data) ? data[0] : data;
 
-    if (!result) throw new Error("No evaluation data found");
+      if (!result) throw new Error("No evaluation data found");
 
-    setStats({
-      wer: result.wer,
-      cer: result.cer,
-      mer: result.mer,
-      wil: result.wil,
-      wip: result.wip,
-      hits: result.hits,
-      substitutions: result.substitutions,
-      deletions: result.deletions,
-      insertions: result.insertions,
-      valid: true,
-    });
+      setStats({
+        wer: result.wer,
+        cer: result.cer,
+        mer: result.mer,
+        wil: result.wil,
+        wip: result.wip,
+        hits: result.hits,
+        substitutions: result.substitutions,
+        deletions: result.deletions,
+        insertions: result.insertions,
+        valid: true,
+        alignment: Array.isArray(result.alignment)
+          ? result.alignment.map(
+              (item: { word?: string | null; type?: string | null }) => ({
+                word: item.word ?? null,
+                type: normalizeAlignmentType(item.type),
+              }),
+            )
+          : [],
+      });
 
-    setMessage("Stats loaded successfully.");
-  } catch (e) {
-    console.error(e);
-    setMessage("Failed to load stats");
-  } finally {
-    setLoadingStats(false);
-    setIsGeneratingStats(false);
+      setMessage("Stats loaded successfully.");
+    } catch (e) {
+      console.error(e);
+      setMessage("Failed to load stats");
+    } finally {
+      setLoadingStats(false);
+      setIsGeneratingStats(false);
+    }
   }
-}
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -543,6 +631,42 @@ async function generateStats() {
                 <div className="font-medium text-[#0F172A]">
                   {duration === null ? "reading..." : `${duration.toFixed(2)}s`}
                 </div>
+              </div>
+            </div>
+            <div className="mt-3 rounded-lg border border-[#E7E5E4] bg-white p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+                Create user
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <input
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="Username *"
+                  className="rounded-md border border-[#E7E5E4] bg-white px-2 py-1.5 text-xs text-[#0F172A] outline-none"
+                />
+                <input
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="Email (optional)"
+                  className="rounded-md border border-[#E7E5E4] bg-white px-2 py-1.5 text-xs text-[#0F172A] outline-none"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Password *"
+                  className="rounded-md border border-[#E7E5E4] bg-white px-2 py-1.5 text-xs text-[#0F172A] outline-none"
+                />
+              </div>
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={createUser}
+                  disabled={isCreatingUser}
+                  className="rounded-md border border-[#E7E5E4] bg-white px-3 py-1.5 text-xs font-semibold text-[#334155] hover:bg-[#F5F5F4] disabled:opacity-60"
+                >
+                  {isCreatingUser ? "Creating..." : "Create user"}
+                </button>
               </div>
             </div>
             <div className="mt-3 rounded-lg border border-[#E7E5E4] bg-white p-2 text-xs text-[#334155]">
@@ -732,24 +856,82 @@ async function generateStats() {
                       onChange={(e) => setDialect(e.target.value)}
                       className="rounded-xl border border-[#E7E5E4] bg-white p-2 text-sm"
                     >
-                      <option value="">Select dialect</option>
+                      <option value="">Select dialect / accent</option>
 
-                      {/* Albanian */}
-                      <option value="standard_albanian">
-                        Standard Albanian
-                      </option>
-                      <option value="kosovo_albanian">Kosovo Albanian</option>
-                      <option value="north_albanian">Northern Albanian</option>
+                      {/* ===================== ALBANIAN (KOSOVO CORE) ===================== */}
+                      <optgroup label="Albanian (Kosovo)">
+                        <option value="sq_kosovo_standard">
+                          Kosovo Standard Albanian
+                        </option>
+                        <option value="sq_prishtina">
+                          Prishtina Urban Accent
+                        </option>
+                        <option value="sq_gjakova">Gjakova Accent</option>
+                        <option value="sq_peja">Peja Accent</option>
+                        <option value="sq_mitrovica">Mitrovica Accent</option>
+                        <option value="sq_south_kosovo">
+                          Southern Kosovo Accent
+                        </option>
+                      </optgroup>
 
-                      {/* English */}
-                      <option value="en_us">English (US)</option>
-                      <option value="en_uk">English (UK)</option>
+                      {/* ===================== ENGLISH (KOSOVO SPEAKERS) ===================== */}
+                      <optgroup label="English (Kosovo Speakers)">
+                        <option value="en_kosovo_beginner">
+                          Kosovo English (A1–A2, strong Albanian influence)
+                        </option>
+                        <option value="en_kosovo_intermediate">
+                          Kosovo English (B1–B2, moderate accent)
+                        </option>
+                        <option value="en_kosovo_fluent">
+                          Kosovo English (C1–C2, near-native but non-native
+                          rhythm)
+                        </option>
+                        <option value="en_kosovo_code_switch">
+                          Code-switching English–Albanian (mixed speech)
+                        </option>
+                      </optgroup>
 
-                      {/* Turkish */}
-                      <option value="tr_standard">Turkish (Standard)</option>
-                      <option value="tr_istanbul">
-                        Turkish (Istanbul accent)
-                      </option>
+                      {/* ===================== GERMAN ===================== */}
+                      <optgroup label="German">
+                        <option value="de_standard">
+                          Standard German (Hochdeutsch)
+                        </option>
+
+                        {/* native speakers included */}
+                        <option value="de_germany_native">
+                          Native German (Germany - mixed regions)
+                        </option>
+
+                        <option value="de_swiss_native">
+                          Swiss German (Native - Schweiz)
+                        </option>
+                        <option value="de_swiss_zurich">
+                          Swiss German (Zürich dialect)
+                        </option>
+
+                        <option value="de_austrian">
+                          Austrian German (Vienna / Austria)
+                        </option>
+                      </optgroup>
+
+                      {/* ===================== TURKISH ===================== */}
+                      <optgroup label="Turkish">
+                        <option value="tr_standard">
+                          Standard Turkish (Istanbul)
+                        </option>
+
+                        {/* include native speakers explicitly */}
+                        <option value="tr_native_istanbul">
+                          Native Istanbul Turkish
+                        </option>
+                        <option value="tr_native_ankara">
+                          Native Ankara Turkish
+                        </option>
+
+                        <option value="tr_anatolian">
+                          Anatolian regional Turkish
+                        </option>
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -764,7 +946,9 @@ async function generateStats() {
                 </button>
                 <button
                   onClick={uploadAndTranscribe}
-                  disabled={isUploading}
+                  disabled={
+                    isUploading || duration === null || !referenceText.trim()
+                  }
                   className="rounded-lg bg-[#001D3D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0A2A52] disabled:opacity-60"
                 >
                   {isUploading ? "Processing..." : "Upload + Evaluate"}
@@ -778,9 +962,8 @@ async function generateStats() {
               Word error rate
             </p>
             <p className="mt-2 text-4xl font-semibold text-[#0F172A]">
-              {transcription?.wer_score !== null &&
-              transcription?.wer_score !== undefined
-                ? `${(transcription.wer_score * 100).toFixed(2)}%`
+              {stats?.wer !== null && stats?.wer !== undefined
+                ? `${(stats?.wer * 100).toFixed(2)}%`
                 : "N/A"}
             </p>
             <p className="mt-1 text-xs text-[#00814D]">
@@ -818,7 +1001,7 @@ async function generateStats() {
                       setReferenceError(null);
                     }
                   }}
-                  className={`h-44 w-full resize-none rounded-xl border p-3 text-sm outline-none ${
+                  className={`h-70 w-full resize-none rounded-xl border p-4 text-base leading-7 outline-none ${
                     referenceError
                       ? "border-red-500 bg-red-50 text-red-700"
                       : "border-[#E7E5E4] bg-[#FAFAF9] text-[#334155]"
@@ -832,12 +1015,68 @@ async function generateStats() {
               </div>
 
               <div className="space-y-2 mt-6">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
-                  Transcription output
-                </p>
-                <div className="h-44 overflow-auto rounded-xl border border-[#E7E5E4] bg-[#FAFAF9] p-3 text-sm leading-7 text-[#334155] whitespace-pre-wrap">
-                  {transcription?.raw_text ||
-                    "Upload and process an audio file to see transcription output."}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+                    Transcription output
+                  </p>
+                  {process.env.NODE_ENV !== "production" && (
+                    <span className="rounded-md border border-[#E7E5E4] bg-[#F8FAFC] px-2 py-1 text-[10px] font-medium text-[#475569]">
+                      align:
+                      {Array.isArray(stats?.alignment)
+                        ? ` ${stats.alignment.length}`
+                        : " 0"}{" "}
+                      | c:
+                      {stats?.alignment?.filter((w) => w.type === "correct")
+                        .length ?? 0}{" "}
+                      w:
+                      {stats?.alignment?.filter((w) => w.type === "wrong")
+                        .length ?? 0}{" "}
+                      m:
+                      {stats?.alignment?.filter((w) => w.type === "missing")
+                        .length ?? 0}{" "}
+                      e:
+                      {stats?.alignment?.filter((w) => w.type === "extra")
+                        .length ?? 0}
+                    </span>
+                  )}
+                </div>
+                <div className="h-70 overflow-auto rounded-xl border border-[#E7E5E4] bg-[#FAFAF9] p-4 text-base leading-8">
+                  <div className="flex flex-wrap gap-x-2 gap-y-2">
+                    {Array.isArray(stats?.alignment) &&
+                    stats.alignment.length > 0 ? (
+                      stats.alignment.map((item, idx) => {
+                        const type = normalizeAlignmentType(item.type);
+
+                        const colorClass =
+                          type === "correct"
+                            ? "bg-[#d9ead3] text-gray-900 rounded-md px-1.5 py-0.5"
+                            : type === "wrong"
+                              ? "bg-[#f4cccc] text-gray-900 rounded-md px-1.5 py-0.5 font-semibold"
+                              : type === "missing"
+                                ? "bg-[#fff2cc] text-gray-900 rounded-md px-1.5 py-0.5 font-semibold"
+                                : "bg-[#d0e0e3] text-gray-900 rounded-md px-1.5 py-0.5 font-semibold";
+
+                        return (
+                          <span
+                            key={idx}
+                            className={`${colorClass} inline-block`}
+                          >
+                            {item.word ?? "[missing]"}
+                          </span>
+                        );
+                      })
+                    ) : transcription?.raw_text ? (
+                      transcription.raw_text.split(" ").map((word, i) => (
+                        <span key={i} className="text-[#334155] inline-block">
+                          {word}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[#64748B]">
+                        No transcription available
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -845,72 +1084,68 @@ async function generateStats() {
         </div>
       </section>
       <section className="overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-sm">
-  {stats && readableStats && (
-    <div className="border-t border-[#E7E5E4] p-4">
+        {stats && readableStats && (
+          <div className="border-t border-[#E7E5E4] p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+                Evaluation Summary
+              </p>
+              <p className="text-xs text-[#64748B]">
+                Accuracy {readableStats.accuracy.toFixed(1)}%
+              </p>
+            </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
-          Evaluation Summary
-        </p>
-        <p className="text-xs text-[#64748B]">
-          Accuracy {readableStats.accuracy.toFixed(1)}%
-        </p>
-      </div>
+            {/* Main stats */}
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
+              <div className="rounded-lg bg-[#F5F5F4] p-3">
+                <div className="text-xs text-[#64748B]">Accuracy</div>
+                <div className="font-semibold text-[#0F172A]">
+                  {readableStats.accuracy.toFixed(1)}%
+                </div>
+              </div>
 
-      {/* Main stats */}
-      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
+              <div className="rounded-lg bg-[#F5F5F4] p-3">
+                <div className="text-xs text-[#64748B]">Error Rate</div>
+                <div className="font-semibold text-[#0F172A]">
+                  {readableStats.errorRate.toFixed(1)}%
+                </div>
+              </div>
 
-        <div className="rounded-lg bg-[#F5F5F4] p-3">
-          <div className="text-xs text-[#64748B]">Accuracy</div>
-          <div className="font-semibold text-[#0F172A]">
-            {readableStats.accuracy.toFixed(1)}%
+              <div className="rounded-lg bg-[#F5F5F4] p-3">
+                <div className="text-xs text-[#64748B]">Correct Words</div>
+                <div className="font-semibold text-[#0F172A]">
+                  {readableStats.correctWords}
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-[#F5F5F4] p-3">
+                <div className="text-xs text-[#64748B]">Total Mistakes</div>
+                <div className="font-semibold text-[#0F172A]">
+                  {readableStats.totalMistakes}
+                </div>
+              </div>
+            </div>
+
+            {/* Breakdown */}
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg bg-[#F5F5F4] p-2">
+                <div className="text-[#64748B]">Wrong Words</div>
+                <div className="font-semibold">{stats.substitutions}</div>
+              </div>
+
+              <div className="rounded-lg bg-[#F5F5F4] p-2">
+                <div className="text-[#64748B]">Missing Words</div>
+                <div className="font-semibold">{stats.deletions}</div>
+              </div>
+
+              <div className="rounded-lg bg-[#F5F5F4] p-2">
+                <div className="text-[#64748B]">Extra Words</div>
+                <div className="font-semibold">{stats.insertions}</div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div className="rounded-lg bg-[#F5F5F4] p-3">
-          <div className="text-xs text-[#64748B]">Error Rate</div>
-          <div className="font-semibold text-[#0F172A]">
-            {readableStats.errorRate.toFixed(1)}%
-          </div>
-        </div>
-
-        <div className="rounded-lg bg-[#F5F5F4] p-3">
-          <div className="text-xs text-[#64748B]">Correct Words</div>
-          <div className="font-semibold text-[#0F172A]">
-            {readableStats.correctWords}
-          </div>
-        </div>
-
-        <div className="rounded-lg bg-[#F5F5F4] p-3">
-          <div className="text-xs text-[#64748B]">Total Mistakes</div>
-          <div className="font-semibold text-[#0F172A]">
-            {readableStats.totalMistakes}
-          </div>
-        </div>
-      </div>
-
-      {/* Breakdown */}
-      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-
-        <div className="rounded-lg bg-[#F5F5F4] p-2">
-          <div className="text-[#64748B]">Wrong Words</div>
-          <div className="font-semibold">{stats.substitutions}</div>
-        </div>
-
-        <div className="rounded-lg bg-[#F5F5F4] p-2">
-          <div className="text-[#64748B]">Missing Words</div>
-          <div className="font-semibold">{stats.deletions}</div>
-        </div>
-
-        <div className="rounded-lg bg-[#F5F5F4] p-2">
-          <div className="text-[#64748B]">Extra Words</div>
-          <div className="font-semibold">{stats.insertions}</div>
-        </div>
-
-      </div>
-    </div>
-  )}
+        )}
       </section>
     </div>
   );

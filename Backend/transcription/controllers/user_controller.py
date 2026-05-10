@@ -53,7 +53,7 @@ def addUser(request):
 
 #update user
 @api_view(['PUT'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])
 def updateUser(request,pk):
     try:
         user = get_object_or_404(User, id=pk)
