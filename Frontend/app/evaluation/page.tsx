@@ -75,8 +75,9 @@ function normalizeAlignmentType(
 }
 
 export default function EvaluationPage() {
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  const apiBase = (
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+  ).replace(/\/+$/, "");
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   // TODO(auth): JWT will be added later. For now we hardcode the user.

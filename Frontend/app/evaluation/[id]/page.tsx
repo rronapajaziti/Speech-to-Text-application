@@ -50,8 +50,9 @@ function normalizeAlignmentType(
 export default function EvaluationDetailsPage() {
   const { id } = useParams<{ id: string }>();
 
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  const apiBase = (
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+  ).replace(/\/+$/, "");
 
   const [data, setData] = useState<EvaluationDetail | null>(null);
   const [loading, setLoading] = useState(true);
