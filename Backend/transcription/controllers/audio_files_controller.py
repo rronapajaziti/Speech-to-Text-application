@@ -48,7 +48,6 @@ def getAudioFile(request, pk):
 @parser_classes((MultiPartParser, FormParser))
 def addAudioFile(request):
     user_id = request.data.get("user")
-
     uploaded_file = request.FILES.get("audio_file")
 
     file_hash = None
@@ -71,10 +70,10 @@ def addAudioFile(request):
 
         if existing and existing.audio_file:
             try:
+                from pathlib import Path
+
                 if not Path(existing.audio_file.path).exists():
-                    logger.warning(
-                        "Missing file on disk for id=%s", existing.id
-                    )
+                    logger.warning("Missing file on disk for id=%s", existing.id)
                     existing = None
             except Exception:
                 logger.exception("File check failed for id=%s", existing.id)
@@ -147,7 +146,6 @@ def addAudioFile(request):
         },
         status=201,
     )
-
 
 @api_view(['PUT'])
 @parser_classes((MultiPartParser, FormParser))

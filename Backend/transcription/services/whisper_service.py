@@ -8,7 +8,7 @@ CUDA_DEFAULT_MODEL = "medium"
 ALBANIAN_ALIASES = {"al", "alb", "sq", "sq-al", "albanian", "shqip"}
 
 GERMAN_ALIASES = {
-    "de", "deu", "german", "de-de", "de-ch", "hochdeutsch"
+    "de", "deu", "ger", "german", "de-de", "de-ch", "hochdeutsch"
 }
 
 
@@ -26,6 +26,7 @@ DIALECT_NORMALIZATION = {
     "de_austrian": "austrian_german",
 }
 
+
 DIALECT_PROMPT_HINTS = {
     # Albanian
     "standard_albanian": "Transkripto ne shqip standard.",
@@ -33,11 +34,10 @@ DIALECT_PROMPT_HINTS = {
     "north_albanian": "Transkripto ne dialektin verior te shqipes.",
 
     # German
-    "standard_german": "Transkribiere auf Standarddeutsch (Hochdeutsch).",
-    "swiss_german": "Transkribiere Schweizerdeutsch korrekt in Standarddeutsch.",
+    "standard_german": "Transkribiere in korrektes Standarddeutsch (Hochdeutsch).",
+    "swiss_german": "Transkribiere Schweizerdeutsch und gib korrektes Standarddeutsch aus.",
     "austrian_german": "Transkribiere österreichisches Deutsch korrekt in Standarddeutsch.",
 }
-
 
 
 def _load_whisper_runtime():
@@ -51,7 +51,6 @@ def _load_whisper_runtime():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return whisper, torch, device
-
 
 
 def _normalize_model_name(model_name: str = None) -> str:
@@ -71,12 +70,10 @@ def _normalize_model_name(model_name: str = None) -> str:
     return normalized
 
 
-
 @lru_cache(maxsize=5)
 def _get_model(model_name: str):
     whisper, _, device = _load_whisper_runtime()
     return whisper.load_model(model_name).to(device)
-
 
 
 def _normalize_language_code(language_code: str = None):
@@ -90,20 +87,22 @@ def _normalize_language_code(language_code: str = None):
     if not normalized:
         return None
 
-    # Albanian aliases
+    # 1. Albanian
     if normalized in ALBANIAN_ALIASES:
         return "sq"
 
-    # German aliases
+    # 2. German
     if normalized in GERMAN_ALIASES:
         return "de"
 
-    # Remove locale suffix (en-US → en)
+    # 3. strip locale (de-DE → de)
     if "-" in normalized:
         normalized = normalized.split("-", 1)[0]
 
     supported_languages = whisper.tokenizer.LANGUAGES
+
     return normalized if normalized in supported_languages else None
+
 
 def _build_initial_prompt(dialect_hint: str = None):
     if not dialect_hint:
@@ -113,7 +112,6 @@ def _build_initial_prompt(dialect_hint: str = None):
     normalized = DIALECT_NORMALIZATION.get(normalized, normalized)
 
     return DIALECT_PROMPT_HINTS.get(normalized)
-
 
 
 def transcribe_audio(
@@ -130,13 +128,18 @@ def transcribe_audio(
 
     initial_prompt = _build_initial_prompt(dialect_hint)
 
-    result = model.transcribe(
-        audio_path,
-        language=language_code,
-        task="transcribe",
-        initial_prompt=initial_prompt,
-        fp16=(device == "cuda"),
-    )
+    # 🔥 IMPORTANT FIX: Whisper crashes or degrades if invalid language passed
+    transcribe_args = {
+        "audio": audio_path,
+        "task": "transcribe",
+        "initial_prompt": initial_prompt,
+        "fp16": (device == "cuda"),
+    }
+
+    if language_code:
+        transcribe_args["language"] = language_code
+
+    result = model.transcribe(**transcribe_args)
 
     return {
         "text": result["text"].strip(),
