@@ -39,12 +39,25 @@ def create_transcription(
                 forced_language=forced_language,
             )
         else:
-            transcription_result = transcribe_audio(
-                audio.audio_file.path,
-                forced_language=forced_language,
-                model_name=model_name,
-                dialect_hint=dialect_hint,
-            )
+            try:
+                transcription_result = transcribe_audio(
+                    audio.audio_file.path,
+                    forced_language=forced_language,
+                    model_name=model_name,
+                    dialect_hint=dialect_hint,
+                )
+            except RuntimeError as exc:
+                if "Whisper runtime is not installed" not in str(exc):
+                    raise
+                logger.warning(
+                    "Whisper runtime missing, falling back to Google ASR for audio %s",
+                    audio_id,
+                )
+                transcription_result = transcribe_audio_google(
+                    audio.audio_file.path,
+                    forced_language=forced_language,
+                )
+                transcription.model_name = "google"
         raw_text = (
             transcription_result.get("text", "")
             if isinstance(transcription_result, dict)

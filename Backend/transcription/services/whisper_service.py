@@ -1,8 +1,4 @@
-import whisper
-import torch
 from functools import lru_cache
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 SUPPORTED_MODELS = {"tiny", "base", "small", "medium", "large"}
 CPU_DEFAULT_MODEL = "base"
@@ -16,7 +12,22 @@ DIALECT_PROMPT_HINTS = {
 }
 
 
+def _load_whisper_runtime():
+    try:
+        import whisper
+        import torch
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Whisper runtime is not installed. Install openai-whisper and torch, "
+            "or use model_name='google'."
+        ) from exc
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    return whisper, torch, device
+
+
 def _normalize_model_name(model_name: str = None) -> str:
+    _, _, device = _load_whisper_runtime()
     if not model_name:
         return CUDA_DEFAULT_MODEL if device == "cuda" else CPU_DEFAULT_MODEL
 
@@ -30,10 +41,12 @@ def _normalize_model_name(model_name: str = None) -> str:
 
 @lru_cache(maxsize=5)
 def _get_model(model_name: str):
+    whisper, _, device = _load_whisper_runtime()
     return whisper.load_model(model_name).to(device)
 
 
 def _normalize_language_code(language_code: str = None):
+    whisper, _, _ = _load_whisper_runtime()
     if not language_code:
         return None
 
@@ -70,6 +83,7 @@ def transcribe_audio(
         - or None for auto-detection
     """
 
+    _, _, device = _load_whisper_runtime()
     language_code = _normalize_language_code(forced_language)
     resolved_model_name = _normalize_model_name(model_name)
     model = _get_model(resolved_model_name)
