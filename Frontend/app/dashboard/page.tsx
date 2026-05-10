@@ -57,13 +57,18 @@ async function getDashboardStats(): Promise<DashboardStats | null> {
   const apiBase = (
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
+
+  console.log("[dashboard] fetching from:", apiBase); // check Netlify function logs
+
   try {
     const response = await fetch(`${apiBase}/dashboard/stats/`, {
       cache: "no-store",
     });
+    console.log("[dashboard] response status:", response.status);
     if (!response.ok) return null;
     return response.json();
-  } catch {
+  } catch (e) {
+    console.error("[dashboard] fetch error:", e); // this will show the real error
     return null;
   }
 }
