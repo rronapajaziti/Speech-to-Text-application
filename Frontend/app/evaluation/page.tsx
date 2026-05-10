@@ -232,7 +232,9 @@ export default function EvaluationPage() {
       setNewPassword("");
       setMessage(`User "${username}" created.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to create user.");
+      setMessage(
+        error instanceof Error ? error.message : "Failed to create user.",
+      );
     } finally {
       setIsCreatingUser(false);
     }
@@ -864,15 +866,8 @@ export default function EvaluationPage() {
                         <option value="sq_kosovo_standard">
                           Kosovo Standard Albanian
                         </option>
-                        <option value="sq_prishtina">
-                          Prishtina Urban Accent
-                        </option>
-                        <option value="sq_gjakova">Gjakova Accent</option>
-                        <option value="sq_peja">Peja Accent</option>
-                        <option value="sq_mitrovica">Mitrovica Accent</option>
-                        <option value="sq_south_kosovo">
-                          Southern Kosovo Accent
-                        </option>
+                        <option value="sq_prishtina">Prishtina Accent</option>
+                        <option value="sq_south_kosovo">Ferizaj Accent</option>
                       </optgroup>
 
                       {/* ===================== ENGLISH (KOSOVO SPEAKERS) ===================== */}
