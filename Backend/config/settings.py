@@ -56,9 +56,18 @@ if render_hostname and render_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_hostname)
 
 # CORS
-CORS_ALLOWED_ORIGINS = get_list_env("CORS_ALLOWED_ORIGINS", default=[])
+DEFAULT_FRONTEND_URL = "https://speech-transcription.netlify.app"
+frontend_url = os.getenv("FRONTEND_URL", DEFAULT_FRONTEND_URL).strip()
+
+CORS_ALLOWED_ORIGINS = get_list_env(
+    "CORS_ALLOWED_ORIGINS",
+    default=[frontend_url] if frontend_url else [],
+)
 CORS_ALLOW_ALL_ORIGINS = not CORS_ALLOWED_ORIGINS and DEBUG
-CSRF_TRUSTED_ORIGINS = get_list_env("CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
+CSRF_TRUSTED_ORIGINS = get_list_env(
+    "CSRF_TRUSTED_ORIGINS",
+    default=CORS_ALLOWED_ORIGINS,
+)
 
 # Application definition
 
