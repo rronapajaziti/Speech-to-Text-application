@@ -58,10 +58,10 @@ async function getDashboardStats(): Promise<DashboardStats | null> {
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
   try {
-    const response = await fetch(`${apiBase}/dashboard/stats/`);
-    if (!response.ok) {
-      return null;
-    }
+    const response = await fetch(`${apiBase}/dashboard/stats/`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
     return response.json();
   } catch {
     return null;
@@ -150,31 +150,23 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={`p-5 ${cardClass}`}>
-          <p className={`text-sm ${mutedTextClass}`}>
-            Total Transcriptions
-          </p>
+          <p className={`text-sm ${mutedTextClass}`}>Total Transcriptions</p>
           <p className="text-2xl font-semibold mt-1">{total}</p>
         </div>
         <div className={`p-5 ${cardClass}`}>
-          <p className={`text-sm ${mutedTextClass}`}>
-            Avg Audio Duration
-          </p>
+          <p className={`text-sm ${mutedTextClass}`}>Avg Audio Duration</p>
           <p className="text-2xl font-semibold mt-1">
             {data.workflow_factors.average_audio_duration_seconds}s
           </p>
         </div>
         <div className={`p-5 ${cardClass}`}>
-          <p className={`text-sm ${mutedTextClass}`}>
-            Reference Samples
-          </p>
+          <p className={`text-sm ${mutedTextClass}`}>Reference Samples</p>
           <p className="text-2xl font-semibold mt-1">
             {data.wer_metrics.samples_with_reference_text}
           </p>
         </div>
         <div className={`p-5 ${cardClass}`}>
-          <p className={`text-sm ${mutedTextClass}`}>
-            Metadata Signals
-          </p>
+          <p className={`text-sm ${mutedTextClass}`}>Metadata Signals</p>
           <p className="text-2xl font-semibold mt-1">{metadataSignals}/2</p>
         </div>
       </div>
@@ -194,9 +186,7 @@ export default async function DashboardPage() {
                 <p className="text-xl font-bold leading-none">
                   {data.workflow_factors.success_rate_percent}%
                 </p>
-                <p className={`text-xs mt-1 ${mutedTextClass}`}>
-                  Success
-                </p>
+                <p className={`text-xs mt-1 ${mutedTextClass}`}>Success</p>
               </div>
             </div>
             <div className="text-sm grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
@@ -318,13 +308,17 @@ export default async function DashboardPage() {
                 return (
                   <div key={model.model_name || "unknown"}>
                     <div className="flex justify-between gap-3">
-                      <span className="font-medium">{model.model_name || "unknown"}</span>
+                      <span className="font-medium">
+                        {model.model_name || "unknown"}
+                      </span>
                       <span>{model.total} runs</span>
                     </div>
                     <div className="mt-1 grid grid-cols-2 gap-x-4 text-xs text-[#475569]">
                       <span>
                         Avg WER:{" "}
-                        {model.avg_wer === null ? "N/A" : model.avg_wer.toFixed(4)}
+                        {model.avg_wer === null
+                          ? "N/A"
+                          : model.avg_wer.toFixed(4)}
                       </span>
                       <span>
                         Avg Accuracy:{" "}
