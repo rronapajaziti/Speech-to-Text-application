@@ -3,34 +3,48 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from ..models import EvaluationResults,Transcription
+from rest_framework.pagination import PageNumberPagination
+
+from ..models import EvaluationResults, Transcription
 from ..serializers import EvaluationResultsSerializer
 from ..services.evaluation_service import evaluate_transcription
+
 logger = logging.getLogger(__name__)
+
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 @api_view(['GET'])
 def getEvaluationResults(request):
-    qs = EvaluationResults.objects.select_related("transcription").all()
+    qs = EvaluationResults.objects.select_related("transcription").order_by("-id")
 
     transcription_id = request.query_params.get("transcription_id")
     if transcription_id:
         qs = qs.filter(transcription_id=transcription_id)
 
-    serializer = EvaluationResultsSerializer(qs, many=True)
-    payload = []
-    for row, item in zip(qs, serializer.data):
-        created_at = item.get("created_at")
-        model_name = row.transcription.model_name if row.transcription else None
-        payload.append(
-            {
-                **item,
-                "model_name": model_name,
-                # compatibility key used by frontend history page
-                "evaluation_date": created_at,
-            }
-        )
-    return Response(payload)
+    paginator = StandardResultsSetPagination()
+    page = paginator.paginate_queryset(qs, request)
+
+    data = []
+    for row in page:
+        data.append({
+            "id": row.id,
+            "transcription": row.transcription_id,
+            "wer": row.wer,
+            "dialect": row.dialect,
+            "gender": row.gender,
+            "age": row.age,
+            "created_at": row.created_at,
+            "model_name": row.transcription.model_name if row.transcription else None,
+            "evaluation_date": row.created_at,
+        })
+
+    return paginator.get_paginated_response(data)
+
 
 @api_view(['GET'])
 def getEvaluationResult(request, pk):
@@ -45,6 +59,7 @@ def getEvaluationResult(request, pk):
         "evaluation_date": evaluation_result.created_at,
         "model_name": evaluation_result.transcription.model_name if evaluation_result.transcription else None,
     })
+
 
 @api_view(['POST'])
 def addEvaluationResult(request):
@@ -67,14 +82,12 @@ def addEvaluationResult(request):
         transcription=transcription,
         gender=gender,
         dialect=dialect,
-        age =age,
-
+        age=age,
         wer=result["wer"],
         cer=result["cer"],
         mer=None,
         wil=None,
         wip=None,
-
         hits=result.get("hits", 0),
         substitutions=result["substitutions"],
         deletions=result["deletions"],
@@ -83,7 +96,8 @@ def addEvaluationResult(request):
     )
 
     return Response(EvaluationResultsSerializer(evaluation).data, status=201)
-    
+
+
 @api_view(['PUT'])
 def updateEvaluationResult(request, pk):
     try:
@@ -91,9 +105,15 @@ def updateEvaluationResult(request, pk):
     except Http404:
         logger.error(f"EvaluationResult with id={pk} not found for update")
         raise
-    serializer = EvaluationResultsSerializer(instance=evaluation_result, data=request.data)
+
+    serializer = EvaluationResultsSerializer(
+        instance=evaluation_result,
+        data=request.data
+    )
+
     if serializer.is_valid():
         serializer.save()
+
     return Response(serializer.data)
 
 
@@ -105,7 +125,6 @@ def deleteEvaluationResult(request, pk):
         transcription = evaluation_result.transcription
         audio = transcription.audio if transcription else None
 
-        # delete in correct order (child → parent)
         evaluation_result.delete()
 
         if transcription:
@@ -114,7 +133,9 @@ def deleteEvaluationResult(request, pk):
         if audio:
             audio.delete()
 
-        return Response({"message": "Evaluation, transcription, and audio deleted successfully"})
+        return Response({
+            "message": "Evaluation, transcription, and audio deleted successfully"
+        })
 
     except Http404:
         logger.error(f"EvaluationResult with id={pk} not found for deletion")

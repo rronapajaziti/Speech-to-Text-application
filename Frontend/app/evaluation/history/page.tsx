@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type BackendEvaluationResult = {
   id: number;
-  transcription: number; // transcription id
+  transcription: number;
   wer: number;
   dialect: string | null;
   gender: string | null;
@@ -22,39 +22,45 @@ export default function EvaluationHistoryPage() {
   ).replace(/\/+$/, "");
 
   const [rows, setRows] = useState<BackendEvaluationResult[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadRows() {
       try {
-        const res = await fetch(`${apiBase}/evaluation-results/`);
-        if (!res.ok || cancelled) return;
+        const token = localStorage.getItem("access");
 
-        const list = (await res.json()) as BackendEvaluationResult[];
+        const res = await fetch(
+          `${apiBase}/evaluation-results/?page=${currentPage}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
 
-        const sorted = [...list].sort((a, b) => {
-          const aDate = new Date(
-            a.evaluation_date || a.created_at || 0,
-          ).getTime();
-          const bDate = new Date(
-            b.evaluation_date || b.created_at || 0,
-          ).getTime();
-          return bDate - aDate;
-        });
+        if (!res.ok) return;
 
-        if (!cancelled) setRows(sorted);
-      } catch {
-        // ignore errors
+        const data = await res.json();
+
+        if (!cancelled) {
+          setRows(data.results);
+          setTotal(data.count);
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
 
-    void loadRows();
+    loadRows();
 
     return () => {
       cancelled = true;
     };
-  }, [apiBase]);
+  }, [apiBase, currentPage]);
+
   async function deleteResult(id: number) {
     const confirmDelete = confirm(
       "Are you sure you want to delete this result?",
@@ -62,21 +68,25 @@ export default function EvaluationHistoryPage() {
     if (!confirmDelete) return;
 
     try {
+      const token = localStorage.getItem("access");
+
       const res = await fetch(`${apiBase}/evaluation-results/delete/${id}/`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) throw new Error();
 
       setRows((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Failed to delete result");
     }
   }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      {/* Header */}
       <div className="flex h-14 items-center justify-between rounded-xl border border-[#E7E5E4] bg-white px-5">
         <div className="text-sm text-[#64748B]">
           Project <span className="mx-2">/</span>
@@ -91,7 +101,6 @@ export default function EvaluationHistoryPage() {
         </Link>
       </div>
 
-      {/* Table */}
       <section className="overflow-hidden rounded-2xl border border-[#d6dee8] bg-white shadow-sm">
         <div className="p-5 border-b border-[#d6dee8]">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
@@ -119,15 +128,19 @@ export default function EvaluationHistoryPage() {
                   rows.map((r) => (
                     <tr
                       key={r.id}
-                      className="border-b border-[#e2e8f0] hover:bg-[#f8fafc] transition"
+                      className="border-b border-[#e2e8f0] hover:bg-[#f8fafc]"
                     >
                       <td className="px-3 py-3">#{r.transcription}</td>
                       <td className="px-3 py-3">{r.model_name ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.username ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.age ?? "N/A"}</td>
                       <td className="px-3 py-3">{r.gender ?? "N/A"}</td>
-                      <td className="px-3 py-3">{r.dialect || "N/A"}</td>
-                      <td className="px-3 py-3">{(r.wer * 100).toFixed(2)}%</td>
+                      <td className="px-3 py-3">{r.dialect ?? "N/A"}</td>
+                      <td className="px-3 py-3">
+                        {r.wer !== null && r.wer !== undefined
+                          ? (r.wer * 100).toFixed(2) + "%"
+                          : "N/A"}
+                      </td>
                       <td className="px-3 py-3">
                         {new Date(
                           r.evaluation_date || r.created_at || 0,
@@ -135,16 +148,17 @@ export default function EvaluationHistoryPage() {
                       </td>
 
                       <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex gap-2">
                           <Link
                             href={`/evaluation/${r.id}`}
-                            className="inline-flex items-center justify-center rounded-md border border-[#E7E5E4] px-2.5 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-[#F5F5F4]"
+                            className="rounded-md border px-2.5 py-1.5 text-xs"
                           >
                             View
                           </Link>
+
                           <button
                             onClick={() => deleteResult(r.id)}
-                            className="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100"
+                            className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs text-red-700"
                           >
                             Delete
                           </button>
@@ -155,7 +169,7 @@ export default function EvaluationHistoryPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-3 py-6 text-center text-[#94a3b8]"
                     >
                       No evaluation results yet.
@@ -164,6 +178,35 @@ export default function EvaluationHistoryPage() {
                 )}
               </tbody>
             </table>
+
+            <div className="flex items-center justify-between px-5 py-3 border-t border-[#E7E5E4]">
+              <p className="text-xs text-[#64748B]">
+                Total evaluations:{" "}
+                <span className="font-semibold text-[#0F172A]">{total}</span>
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="rounded-md border px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  Prev
+                </button>
+
+                <span className="text-xs text-[#334155]">
+                  Page {currentPage}
+                </span>
+
+                <button
+                  disabled={rows.length < 10}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="rounded-md border px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
