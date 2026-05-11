@@ -2,27 +2,43 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./sidebar.css";
-import { LayoutDashboard, Mic, BarChart3, History } from "lucide-react";
+import { jwtDecode } from "jwt-decode";
+
+import {
+  LayoutDashboard,
+  Mic,
+  BarChart3,
+  History,
+  TrendingUp,
+} from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
   const [openMenu, setOpenMenu] = useState<number | null>(1);
+  const [user, setUser] = useState<User | null>(null);
+  type User = {
+    username?: string;
+    email?: string;
+  };
 
   const navItems = [
     {
-      href: "/dashboard",
       label: "Dashboard",
+      href: "/dashboard",
       icon: LayoutDashboard,
+      children: [
+        { href: "/dashboard/stats", label: "Stats", icon: TrendingUp },
+      ],
     },
     {
       label: "Evaluation",
+      href: "/evaluation",
       icon: Mic,
       children: [
-        { href: "/evaluation", label: "Overview", icon: BarChart3 },
         { href: "/evaluation/history", label: "History", icon: History },
       ],
     },
@@ -31,6 +47,38 @@ export default function Sidebar() {
   const toggleMenu = (index: number) => {
     setOpenMenu(openMenu === index ? null : index);
   };
+  const apiBase = (
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+  ).replace(/\/+$/, "");
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("access");
+
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${apiBase}/users/me/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch user");
+
+        const data = await res.json();
+
+        setUser({
+          username: data.username,
+          email: data.email,
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchUser();
+  }, [apiBase]);
 
   return (
     <aside className="sidebar">
@@ -45,71 +93,53 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="nav">
-        {navItems.map((item, index) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
-
-          if (item.children) {
-            const isOpen = openMenu === index;
-
-            return (
-              <div key={item.label} className="nav-group">
-                {/* Parent clickable */}
-                <div
-                  className="nav-item parent"
-                  onClick={() => toggleMenu(index)}
-                  style={{ cursor: "pointer" }}
-                >
-                  {Icon && <Icon size={18} className="icon" />}
-                  <span>{item.label}</span>
-                </div>
-
-                {/* Submenu */}
-                {isOpen && (
-                  <div className="submenu">
-                    {item.children.map((child) => {
-                      const isActive = pathname === child.href;
-                      const ChildIcon = child.icon;
-
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={`sub-item ${isActive ? "active" : ""}`}
-                        >
-                          {ChildIcon && (
-                            <ChildIcon size={16} className="icon" />
-                          )}
-                          <span>{child.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
-
           const isActive = pathname === item.href;
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item ${isActive ? "active" : ""}`}
-            >
-              {Icon && <Icon size={18} className="icon" />}
-              <span>{item.label}</span>
-            </Link>
+            <div key={item.label} className="nav-group">
+              {/* Parent */}
+              <Link
+                href={item.href}
+                className={`nav-item ${isActive ? "active" : ""}`}
+              >
+                {Icon && <Icon size={18} className="icon" />}
+                <span>{item.label}</span>
+              </Link>
+
+              {/* Children (always visible but indented) */}
+              <div className="submenu">
+                {item.children?.map((child) => {
+                  const ChildIcon = child.icon;
+                  const isChildActive = pathname === child.href;
+
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={`sub-item ${isChildActive ? "active" : ""}`}
+                    >
+                      {ChildIcon && <ChildIcon size={16} className="icon" />}
+                      <span>{child.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
 
       {/* User */}
       <div className="user">
-        <div className="avatar">RP</div>
+        <div className="avatar">
+          {user?.username?.charAt(0).toUpperCase() || "U"}
+        </div>
+
         <div>
-          <p className="user-name">Rrona Pajaziti</p>
-          <p className="user-email">rrona.pajaziti@...</p>
+          <p className="user-name">{user?.username || "Unknown"}</p>
+          <p className="user-email">{user?.email || ""}</p>
         </div>
       </div>
       <button

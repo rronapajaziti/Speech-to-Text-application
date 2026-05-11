@@ -21,7 +21,14 @@ def getUsers(request):
     serializer = UserSerializer(users,many=True)
     return Response(serializer.data)
 
-
+#get current user
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getCurrentUser(request):
+    user = request.user
+    serializer = UserSerializer(user, many=False)
+    return Response(serializer.data)
+    
 @api_view(['GET'])
 def getUsersPublic(request):
     users = User.objects.all().order_by("id")

@@ -1,6 +1,6 @@
 type DashboardStats = {
   workflow_factors: {
-    total_transcriptions: number;
+    total_evaluations: number;
     completed_transcriptions: number;
     failed_transcriptions: number;
     pending_transcriptions: number;
@@ -58,7 +58,7 @@ async function getDashboardStats(): Promise<DashboardStats | null> {
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
   ).replace(/\/+$/, "");
 
-  console.log("[dashboard] fetching from:", apiBase); // check Netlify function logs
+  console.log("[dashboard] fetching from:", apiBase);
 
   try {
     const response = await fetch(`${apiBase}/dashboard/stats/`, {
@@ -68,28 +68,25 @@ async function getDashboardStats(): Promise<DashboardStats | null> {
     if (!response.ok) return null;
     return response.json();
   } catch (e) {
-    console.error("[dashboard] fetch error:", e); // this will show the real error
+    console.error("[dashboard] fetch error:", e);
     return null;
   }
 }
 
 function toPercent(part: number, total: number): number {
-  if (!total) {
-    return 0;
-  }
+  if (!total) return 0;
   return Math.round((part / total) * 100);
 }
 
 function toAngle(part: number, total: number): number {
-  if (!total) {
-    return 0;
-  }
+  if (!total) return 0;
   return Math.round((part / total) * 360);
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardStats();
-  const cardClass = "rounded-xl border border-[#D7E3FF] bg-[#EEF2FF] shadow-sm";
+  const cardClass =
+    "rounded-xl border border-[#D7E3FF] bg-[#EEF2FF] shadow-sm";
   const mutedTextClass = "text-[#64748B]";
   const primaryTextClass = "text-[#0F172A]";
 
@@ -105,23 +102,24 @@ export default async function DashboardPage() {
     );
   }
 
-  const total = data.workflow_factors.total_transcriptions;
+  const total = data.workflow_factors.total_evaluations;
   const completed = data.workflow_factors.completed_transcriptions;
   const failed = data.workflow_factors.failed_transcriptions;
   const pending = data.workflow_factors.pending_transcriptions;
   const processing = data.workflow_factors.processing_transcriptions;
+  const totalTx = completed + failed + pending + processing;
 
-  const completedAngle = toAngle(completed, total);
-  const failedAngle = toAngle(failed, total);
-  const pendingAngle = toAngle(pending, total);
+  const completedAngle = toAngle(completed, totalTx);
+  const failedAngle = toAngle(failed, totalTx);
+  const pendingAngle = toAngle(pending, totalTx);
   const processingAngle = Math.max(
     0,
     360 - completedAngle - failedAngle - pendingAngle,
   );
-  const completedPercent = toPercent(completed, total);
-  const failedPercent = toPercent(failed, total);
-  const pendingPercent = toPercent(pending, total);
-  const processingPercent = toPercent(processing, total);
+  const completedPercent = toPercent(completed, totalTx);
+  const failedPercent = toPercent(failed, totalTx);
+  const pendingPercent = toPercent(pending, totalTx);
+  const processingPercent = toPercent(processing, totalTx);
 
   const donutBackground = `conic-gradient(
     #06a77d 0deg ${completedAngle}deg,
@@ -155,7 +153,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={`p-5 ${cardClass}`}>
-          <p className={`text-sm ${mutedTextClass}`}>Total Transcriptions</p>
+          <p className={`text-sm ${mutedTextClass}`}>Total Evaluations</p>
           <p className="text-2xl font-semibold mt-1">{total}</p>
         </div>
         <div className={`p-5 ${cardClass}`}>
@@ -183,15 +181,11 @@ export default async function DashboardPage() {
             Status share across all runs
           </p>
           <div className="mt-5 flex flex-col sm:flex-row gap-5 items-center">
-            {/* SLIM DONUT */}
             <div className="relative h-40 w-40 shrink-0">
-              {/* outer ring */}
               <div
                 className="absolute inset-0 rounded-full"
                 style={{ background: donutBackground }}
               />
-
-              {/* inner hole (slimmer than before) */}
               <div className="absolute inset-[22%] rounded-full bg-white border border-[#D7E3FF] flex flex-col items-center justify-center">
                 <p className="text-lg font-bold leading-none">
                   {data.workflow_factors.success_rate_percent}%
@@ -200,7 +194,6 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            {/* SLIMMER CARDS ROW */}
             <div className="text-sm flex flex-wrap gap-2 w-full">
               {[
                 {
@@ -234,12 +227,13 @@ export default async function DashboardPage() {
                 >
                   <div className="flex items-center justify-between">
                     <p className="flex items-center gap-1 font-medium text-sm">
-                      <span className={`h-2 w-2 rounded-full ${item.color}`} />
+                      <span
+                        className={`h-2 w-2 rounded-full ${item.color}`}
+                      />
                       {item.label}
                     </p>
                     <p className="text-sm">{item.percent}%</p>
                   </div>
-
                   <p className={`text-[11px] mt-1 ${mutedTextClass}`}>
                     {item.count} samples
                   </p>
@@ -315,7 +309,7 @@ export default async function DashboardPage() {
             {data.variation_coverage.model_performance
               .slice(0, 8)
               .map((model) => {
-                const percent = toPercent(model.total, total || 1);
+                const percent = toPercent(model.total, totalTx || 1);
                 return (
                   <div key={model.model_name || "unknown"}>
                     <div className="flex justify-between gap-3">

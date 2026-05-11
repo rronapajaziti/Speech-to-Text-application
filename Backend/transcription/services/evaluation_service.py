@@ -107,6 +107,7 @@ def evaluate_transcription(reference_text, hypothesis_text):
 
         "accuracy": max(0, (1 - wer) * 100),
 
+        "hits": stats.get("hits", 0),
         "substitutions": stats.get("substitutions", 0),
         "deletions": stats.get("deletions", 0),
         "insertions": stats.get("insertions", 0),
