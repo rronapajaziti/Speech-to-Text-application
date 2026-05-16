@@ -80,42 +80,6 @@ export function WERRangeBandChart({
   return <AgCharts options={options} style={{ width: "100%" }} />;
 }
 
-// ── Model Performance Grouped Bar ─────────────────────────────────────────
-type ModelPerf = {
-  model_name: string;
-  total: number;
-  avg_wer: number | null;
-  avg_accuracy: number | null;
-};
-
-export function ModelPerformanceChart({ models }: { models: ModelPerf[] }) {
-  const data = models.slice(0, 8).map((m) => ({
-    model:    m.model_name || "unknown",
-    wer:      m.avg_wer      !== null ? +(m.avg_wer      * 100).toFixed(2) : 0,
-    accuracy: m.avg_accuracy !== null ? +(m.avg_accuracy * 100).toFixed(2) : 0,
-  }));
-
-  const options = {
-    data,
-    series: [
-      { type: "bar", xKey: "model", yKey: "wer",      yName: "Avg WER (%)",      fill: C.crimson, stroke: C.crimson, cornerRadius: 2 },
-      { type: "bar", xKey: "model", yKey: "accuracy",  yName: "Avg Accuracy (%)", fill: C.navy,    stroke: C.navy,    cornerRadius: 2 },
-    ],
-    axes: [
-      { type: "category", position: "bottom", title: { text: "Model", fontSize: 12 }, label: { rotation: -30, fontSize: 11 }, line: AXIS_LINE },
-      {
-        type: "number", position: "left", title: { text: "(%)", fontSize: 12 },
-        min: 0, max: 100, line: AXIS_LINE, gridLine: { style: GRID_STYLE },
-        label: { fontSize: 11, formatter: ({ value }: { value: number }) => `${value}%` },
-      },
-    ],
-    legend: { enabled: true, position: "bottom", spacing: 16, item: { label: { fontSize: 12 } } },
-    background: BG, height: 290,
-    padding: { top: 16, bottom: 8, left: 8, right: 8 },
-  } as unknown as AgChartOptions;
-  return <AgCharts options={options} style={{ width: "100%" }} />;
-}
-
 // ── Language Coverage Horizontal Bar ─────────────────────────────────────
 type LangDist = {
   audio__language__language_name: string;

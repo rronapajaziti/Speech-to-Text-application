@@ -1,4 +1,5 @@
 import difflib
+import re
 from collections import Counter
 
 from django.db.models import Avg, Count, Min, Max, Sum
@@ -215,8 +216,8 @@ def getDashboardStats(request):
         .exclude(raw_text="")
         .values("reference_text", "raw_text")[:500]
     ):
-        ref_words = t["reference_text"].lower().split()
-        hyp_words = t["raw_text"].lower().split()
+        ref_words = re.findall(r"[^\W_]+", t["reference_text"].lower())
+        hyp_words = re.findall(r"[^\W_]+", t["raw_text"].lower())
         for tag, i1, i2, _j1, _j2 in difflib.SequenceMatcher(None, ref_words, hyp_words).get_opcodes():
             if tag in ("replace", "delete"):
                 for word in ref_words[i1:i2]:
@@ -225,6 +226,66 @@ def getDashboardStats(request):
     problematic_words = [
         {"word": word, "error_count": count}
         for word, count in word_error_counter.most_common(20)
+    ]
+
+    # Model × Language WER cross-table — best (lowest WER) per (model, language)
+    from django.db.models import Min as _Min
+    best_ids = []
+    for group in (
+        EvaluationResults.objects
+        .exclude(transcription__model_name__isnull=True)
+        .exclude(transcription__model_name="")
+        .exclude(wer__isnull=True)
+        .values(
+            "transcription__model_name",
+            "transcription__audio__language",
+        )
+        .annotate(best_wer=_Min("wer"))
+    ):
+        ev = (
+            EvaluationResults.objects
+            .filter(
+                transcription__model_name=group["transcription__model_name"],
+                transcription__audio__language=group["transcription__audio__language"],
+                wer=group["best_wer"],
+            )
+            .values_list("id", flat=True)
+            .first()
+        )
+        if ev:
+            best_ids.append(ev)
+    latest_ids = best_ids
+    model_language_wer = [
+        {
+            "model": ev.transcription.model_name,
+            "language_name": (
+                ev.transcription.audio.language.language_name
+                if ev.transcription.audio and ev.transcription.audio.language
+                else "Unknown"
+            ),
+            "language_code": (
+                ev.transcription.audio.language.code
+                if ev.transcription.audio and ev.transcription.audio.language
+                else "?"
+            ),
+            "count": 1,
+            "avg_wer": round(ev.wer or 0.0, 4),
+            "avg_accuracy": round(max(0.0, 1.0 - (ev.wer or 0.0)), 4),
+            "avg_cer": round(ev.cer or 0.0, 4),
+        }
+        for ev in (
+            EvaluationResults.objects
+            .filter(id__in=latest_ids)
+            .select_related(
+                "transcription",
+                "transcription__audio",
+                "transcription__audio__language",
+            )
+            .order_by(
+                "transcription__audio__language__language_name",
+                "transcription__model_name",
+            )
+        )
     ]
 
     # Model distribution
@@ -301,6 +362,7 @@ def getDashboardStats(request):
         "gender_analysis": gender_analysis,
         "dialect_analysis": dialect_analysis,
         "language_wer_analysis": language_wer_analysis,
+        "model_language_wer": model_language_wer,
         "age_analysis": age_analysis,
         "problematic_words": problematic_words,
         "variation_coverage": {

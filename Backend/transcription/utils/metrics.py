@@ -20,7 +20,8 @@ NUMBER_WORDS = {
 def normalize(text: str) -> str:
     if not text:
         return ""
-    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    # [^\W_]+ keeps Unicode letters (ë, ç, ä, ü …) and digits, drops punctuation
+    tokens = re.findall(r"[^\W_]+", text.lower())
     normalized_tokens = [NUMBER_WORDS.get(token, token) for token in tokens]
     return " ".join(normalized_tokens)
 

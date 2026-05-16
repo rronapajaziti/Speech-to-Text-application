@@ -61,6 +61,25 @@ type StatsData = {
   problematic_words: Array<{ word: string; error_count: number }>;
 };
 
+const DIALECT_LABEL: Record<string, string> = {
+  sq_kosovo_standard:    "Kosovo Standard Albanian",
+  sq_prishtina:          "Prishtina Accent",
+  sq_south_kosovo:       "Ferizaj Accent",
+  en_kosovo_beginner:    "Kosovo English (A1–A2)",
+  en_kosovo_intermediate:"Kosovo English (B1–B2)",
+  en_kosovo_fluent:      "Kosovo English (C1–C2)",
+  en_kosovo_code_switch: "Code-switching EN–SQ",
+  de_standard:           "Standard German",
+  de_germany_native:     "Native German (DE)",
+  de_swiss_native:       "Swiss German (Native)",
+  de_swiss_zurich:       "Swiss German (Zürich)",
+  de_austrian:           "Austrian German",
+  tr_standard:           "Standard Turkish",
+  tr_native_istanbul:    "Istanbul Turkish",
+  tr_native_ankara:      "Ankara Turkish",
+  tr_anatolian:          "Anatolian Turkish",
+};
+
 export const dynamic = "force-static";
 export const revalidate = 300;
 
@@ -437,17 +456,17 @@ items={data.language_wer_analysis.map((l) => ({
       {/* ── Dialect Comparison ── */}
       <div className={`p-6 ${card}`}>
         <h2 className="text-lg font-semibold">Dialect Comparison</h2>
-        <p className={`text-sm ${muted}`}>WER, accuracy, and CER per dialect</p>
+        <p className={`text-sm ${muted}`}>
+          WER, accuracy, and CER per dialect
+        </p>
         {data.dialect_analysis.length === 0 ? (
-          <p className={`mt-4 text-sm ${muted}`}>
-            No dialect data recorded yet.
-          </p>
+          <p className={`mt-4 text-sm ${muted}`}>No dialect data recorded yet.</p>
         ) : (
           <>
             <div className="mt-4">
               <ComparisonGroupedBar
-items={data.dialect_analysis.map((d) => ({
-                  label: d.dialect,
+                items={data.dialect_analysis.map((d) => ({
+                  label: DIALECT_LABEL[d.dialect] ?? d.dialect,
                   avg_wer: d.avg_wer,
                   avg_accuracy: d.avg_accuracy,
                   avg_cer: d.avg_cer,
@@ -456,7 +475,11 @@ items={data.dialect_analysis.map((d) => ({
             </div>
             <div className="mt-3 flex flex-col gap-2">
               {data.dialect_analysis.map((d) => (
-                <MetricRow key={d.dialect} label={d.dialect} item={d} />
+                <MetricRow
+                  key={d.dialect}
+                  label={DIALECT_LABEL[d.dialect] ?? d.dialect}
+                  item={d}
+                />
               ))}
             </div>
           </>

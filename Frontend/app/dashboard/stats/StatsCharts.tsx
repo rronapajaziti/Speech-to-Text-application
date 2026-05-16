@@ -115,3 +115,4 @@ export function ComparisonGroupedBar({ items }: { items: GroupItem[] }) {
   } as unknown as AgChartOptions;
   return <AgCharts options={options} style={{ width: "100%" }} />;
 }
+

@@ -1,11 +1,14 @@
+import logging
 from functools import lru_cache
 
-SUPPORTED_MODELS = {"tiny", "base", "small", "medium", "large"}
-CPU_DEFAULT_MODEL = "base"
-CUDA_DEFAULT_MODEL = "medium"
+logger = logging.getLogger(__name__)
+
+SUPPORTED_MODELS = {"tiny", "base", "small", "medium", "large", "large-v2", "large-v3"}
+CPU_DEFAULT_MODEL = "small"
+CUDA_DEFAULT_MODEL = "large"
 
 
-ALBANIAN_ALIASES = {"al", "alb", "sq", "sq-al", "albanian", "shqip"}
+ALBANIAN_ALIASES = {"al", "alb", "sq", "sq-al", "sq_al", "albanian", "shqip"}
 
 GERMAN_ALIASES = {
     "de", "deu", "ger", "german", "de-de", "de-ch", "hochdeutsch"
@@ -28,16 +31,27 @@ DIALECT_NORMALIZATION = {
 
 
 DIALECT_PROMPT_HINTS = {
-    # Albanian
-    "standard_albanian": "Transkripto ne shqip standard.",
-    "kosovo_albanian": "Transkripto ne shqip te Kosoves me fjale dhe forme natyrale.",
-    "north_albanian": "Transkripto ne dialektin verior te shqipes.",
+    # Albanian — domain prompt anchors q/ç/ë orthography and ASR vocabulary
+    "standard_albanian": (
+        "Përshëndetje. Qëllimi është të vlerësohet saktësia e njohjes automatike të të folurit në gjuhën shqipe."
+    ),
+    "kosovo_albanian": (
+        "Përshëndetje. Qëllimi është të vlerësohet saktësia e njohjes automatike të të folurit në gjuhën shqipe të Kosovës."
+    ),
+    "north_albanian": (
+        "Përshëndetje. Qëllimi është të vlerësohet saktësia e njohjes automatike të të folurit në gjuhën shqipe."
+    ),
 
     # German
-    "standard_german": "Transkribiere in korrektes Standarddeutsch (Hochdeutsch).",
-    "swiss_german": "Transkribiere Schweizerdeutsch und gib korrektes Standarddeutsch aus.",
-    "austrian_german": "Transkribiere österreichisches Deutsch korrekt in Standarddeutsch.",
+    "standard_german": "Guten Tag. Heute sprechen wir über Technologie und Wissenschaft.",
+    "swiss_german": "Grüezi. Heute sprechen wir über Technologie und Wissenschaft.",
+    "austrian_german": "Guten Tag. Heute sprechen wir über Technologie und Wissenschaft.",
 }
+
+# Fallback for language=sq with no dialect hint
+ALBANIAN_FALLBACK_PROMPT = (
+    "Përshëndetje. Qëllimi është të vlerësohet saktësia e njohjes automatike të të folurit në gjuhën shqipe."
+)
 
 
 def _load_whisper_runtime():
@@ -60,9 +74,6 @@ def _normalize_model_name(model_name: str = None) -> str:
         return CUDA_DEFAULT_MODEL if device == "cuda" else CPU_DEFAULT_MODEL
 
     normalized = model_name.strip().lower()
-
-    if normalized == "large-v3":
-        normalized = "large"
 
     if normalized not in SUPPORTED_MODELS:
         return CUDA_DEFAULT_MODEL if device == "cuda" else CPU_DEFAULT_MODEL
@@ -95,13 +106,17 @@ def _normalize_language_code(language_code: str = None):
     if normalized in GERMAN_ALIASES:
         return "de"
 
-    # 3. strip locale (de-DE → de)
+    # 3. normalise separators (sq_AL → sq-al, de-DE → de)
+    normalized = normalized.replace("_", "-")
     if "-" in normalized:
         normalized = normalized.split("-", 1)[0]
 
     supported_languages = whisper.tokenizer.LANGUAGES
 
-    return normalized if normalized in supported_languages else None
+    result = normalized if normalized in supported_languages else None
+    if result is None:
+        logger.warning("Whisper: unrecognised language code %r — will auto-detect", language_code)
+    return result
 
 
 def _build_initial_prompt(dialect_hint: str = None):
@@ -112,6 +127,25 @@ def _build_initial_prompt(dialect_hint: str = None):
     normalized = DIALECT_NORMALIZATION.get(normalized, normalized)
 
     return DIALECT_PROMPT_HINTS.get(normalized)
+
+
+def _remove_repetitions(text: str, max_repeats: int = 3) -> str:
+    """Drop runs of the same word/token repeated more than max_repeats times."""
+    if not text:
+        return text
+    words = text.split()
+    result = []
+    run = 0
+    prev = None
+    for w in words:
+        if w == prev:
+            run += 1
+        else:
+            run = 1
+            prev = w
+        if run <= max_repeats:
+            result.append(w)
+    return " ".join(result)
 
 
 def transcribe_audio(
@@ -127,23 +161,40 @@ def transcribe_audio(
     model = _get_model(resolved_model_name)
 
     initial_prompt = _build_initial_prompt(dialect_hint)
+    # If Albanian with no dialect hint, use fallback to prevent Slavic drift
+    if initial_prompt is None and language_code == "sq":
+        initial_prompt = ALBANIAN_FALLBACK_PROMPT
 
-    # 🔥 IMPORTANT FIX: Whisper crashes or degrades if invalid language passed
     transcribe_args = {
         "audio": audio_path,
         "task": "transcribe",
         "initial_prompt": initial_prompt,
         "fp16": (device == "cuda"),
+        "condition_on_previous_text": False,
+        "temperature": 0,
+        "beam_size": 10,
     }
 
     if language_code:
         transcribe_args["language"] = language_code
 
+    logger.info(
+        "Whisper transcribing: model=%s forced_lang=%r db_code=%r prompt=%r",
+        resolved_model_name, language_code, forced_language, initial_prompt,
+    )
+
     result = model.transcribe(**transcribe_args)
+    text = _remove_repetitions(result["text"].strip())
+
+    detected = result.get("language", "unknown")
+    logger.info(
+        "Whisper result: detected_lang=%r text_preview=%r",
+        detected, text[:120],
+    )
 
     return {
-        "text": result["text"].strip(),
-        "language": result.get("language", "unknown"),
+        "text": text,
+        "language": detected,
         "dialect_hint": dialect_hint,
         "model": resolved_model_name,
         "segments": result["segments"],

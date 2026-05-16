@@ -1,9 +1,18 @@
 import {
   WorkflowDonutChart,
   WERRangeBandChart,
-  ModelPerformanceChart,
   LanguageCoverageChart,
 } from "./DashboardCharts";
+
+type ModelLangRow = {
+  model: string;
+  language_name: string;
+  language_code: string;
+  count: number;
+  avg_wer: number;
+  avg_accuracy: number;
+  avg_cer: number;
+};
 
 type DashboardStats = {
   workflow_factors: {
@@ -27,18 +36,10 @@ type DashboardStats = {
     worst_wer: number;
     samples_with_reference_text: number;
   };
+  model_language_wer: ModelLangRow[];
   variation_coverage: {
     unique_models_tested: number;
     unique_languages_tested: number;
-    model_distribution: Array<{ model_name: string; total: number }>;
-    model_performance: Array<{
-      model_name: string;
-      total: number;
-      avg_wer: number | null;
-      best_wer: number | null;
-      worst_wer: number | null;
-      avg_accuracy: number | null;
-    }>;
     language_distribution: Array<{
       audio__language__language_name: string;
       audio__language__code: string;
@@ -199,22 +200,82 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Model Performance + Language Coverage ── */}
+      {/* ── Model × Language WER Table + Language Coverage ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={`p-6 ${cardClass}`}>
-          <h2 className="text-lg font-semibold">Model Performance</h2>
+          <h2 className="text-lg font-semibold">Model Comparison by Language</h2>
           <p className={`text-sm ${mutedTextClass}`}>
-            Compare avg WER and accuracy across models (
-            {data.variation_coverage.unique_models_tested} unique)
+            Best (lowest WER) evaluation per model × language
           </p>
           <div className="mt-4">
-            {data.variation_coverage.model_performance.length === 0 ? (
+            {(data.model_language_wer ?? []).length === 0 ? (
               <p className={`text-sm ${mutedTextClass}`}>No model data yet.</p>
-            ) : (
-              <ModelPerformanceChart
-                models={data.variation_coverage.model_performance}
-              />
-            )}
+            ) : (() => {
+              const rows = data.model_language_wer ?? [];
+              const models = [...new Set(rows.map((r) => r.model))].sort();
+              const languages = [
+                ...new Map(rows.map((r) => [r.language_name, r.language_code])).entries(),
+              ].sort(([a], [b]) => a.localeCompare(b));
+              const lookup = new Map(
+                rows.map((r) => [`${r.language_name}||${r.model}`, r])
+              );
+              const werColor = (w: number) =>
+                w < 0.2 ? "#1D3557" : w < 0.4 ? "#92400E" : "#B2182B";
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#DEE2E6]">
+                        <th className="py-2 pr-4 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wide">
+                          Language
+                        </th>
+                        {models.map((m) => (
+                          <th
+                            key={m}
+                            className="py-2 px-3 text-center text-xs font-semibold text-[#64748B] uppercase tracking-wide"
+                          >
+                            {m}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {languages.map(([lang, code]) => (
+                        <tr
+                          key={lang}
+                          className="border-b border-[#F1F5F9] hover:bg-[#F8F9FA] transition-colors"
+                        >
+                          <td className="py-2.5 pr-4 font-medium text-[#0F172A]">
+                            {lang}
+                            <span className={`ml-1.5 text-xs ${mutedTextClass}`}>
+                              ({code})
+                            </span>
+                          </td>
+                          {models.map((m) => {
+                            const cell = lookup.get(`${lang}||${m}`);
+                            return (
+                              <td key={m} className="py-2.5 px-3 text-center">
+                                {cell ? (
+                                  <span
+                                    className="font-semibold"
+                                    style={{ color: werColor(cell.avg_wer) }}
+                                  >
+                                    {(cell.avg_wer * 100).toFixed(1)}%
+                                  </span>
+                                ) : (
+                                  <span className={`text-xs ${mutedTextClass}`}>—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

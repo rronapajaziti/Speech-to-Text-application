@@ -124,18 +124,14 @@ def deleteEvaluationResult(request, pk):
         evaluation_result = get_object_or_404(EvaluationResults, id=pk)
 
         transcription = evaluation_result.transcription
-        audio = transcription.audio if transcription else None
 
         evaluation_result.delete()
 
         if transcription:
             transcription.delete()
 
-        if audio:
-            audio.delete()
-
         return Response({
-            "message": "Evaluation, transcription, and audio deleted successfully"
+            "message": "Evaluation and transcription deleted successfully"
         })
 
     except Http404:

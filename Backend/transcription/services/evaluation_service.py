@@ -21,14 +21,10 @@ def _normalize_token(token: str) -> str:
 
 
 def _tokenize(text: str) -> list[str]:
-    """
-    Normalize text for alignment:
-    - lowercase
-    - keep alphanumeric tokens (drops punctuation-only tokens)
-    """
     if not text:
         return []
-    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    # [^\W_]+ matches Unicode word chars (incl. ë, ç, ä, ü …) but not underscore
+    tokens = re.findall(r"[^\W_]+", text.lower())
     return [_normalize_token(token) for token in tokens]
 
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import "./sidebar.css";
-import { jwtDecode } from "jwt-decode";
+import { fetchWithAuth } from "../lib/auth";
 
 import {
   LayoutDashboard,
@@ -53,25 +53,12 @@ export default function Sidebar() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const token = localStorage.getItem("access");
-
-      if (!token) return;
-
+      if (!localStorage.getItem("access")) return;
       try {
-        const res = await fetch(`${apiBase}/users/me/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
+        const res = await fetchWithAuth(`${apiBase}/users/me/`);
         if (!res.ok) throw new Error("Failed to fetch user");
-
         const data = await res.json();
-
-        setUser({
-          username: data.username,
-          email: data.email,
-        });
+        setUser({ username: data.username, email: data.email });
       } catch (err) {
         console.error(err);
       }
