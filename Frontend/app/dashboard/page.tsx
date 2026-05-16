@@ -1,3 +1,10 @@
+import {
+  WorkflowDonutChart,
+  WERRangeBandChart,
+  ModelPerformanceChart,
+  LanguageCoverageChart,
+} from "./DashboardCharts";
+
 type DashboardStats = {
   workflow_factors: {
     total_evaluations: number;
@@ -73,20 +80,9 @@ async function getDashboardStats(): Promise<DashboardStats | null> {
   }
 }
 
-function toPercent(part: number, total: number): number {
-  if (!total) return 0;
-  return Math.round((part / total) * 100);
-}
-
-function toAngle(part: number, total: number): number {
-  if (!total) return 0;
-  return Math.round((part / total) * 360);
-}
-
 export default async function DashboardPage() {
   const data = await getDashboardStats();
-  const cardClass =
-    "rounded-xl border border-[#D7E3FF] bg-[#EEF2FF] shadow-sm";
+  const cardClass = "rounded-xl border border-[#DEE2E6] bg-white shadow-sm";
   const mutedTextClass = "text-[#64748B]";
   const primaryTextClass = "text-[#0F172A]";
 
@@ -107,50 +103,17 @@ export default async function DashboardPage() {
   const failed = data.workflow_factors.failed_transcriptions;
   const pending = data.workflow_factors.pending_transcriptions;
   const processing = data.workflow_factors.processing_transcriptions;
-  const totalTx = completed + failed + pending + processing;
-
-  const completedAngle = toAngle(completed, totalTx);
-  const failedAngle = toAngle(failed, totalTx);
-  const pendingAngle = toAngle(pending, totalTx);
-  const processingAngle = Math.max(
-    0,
-    360 - completedAngle - failedAngle - pendingAngle,
-  );
-  const completedPercent = toPercent(completed, totalTx);
-  const failedPercent = toPercent(failed, totalTx);
-  const pendingPercent = toPercent(pending, totalTx);
-  const processingPercent = toPercent(processing, totalTx);
-
-  const donutBackground = `conic-gradient(
-    #06a77d 0deg ${completedAngle}deg,
-    #c1121f ${completedAngle}deg ${completedAngle + failedAngle}deg,
-    #ffc300 ${completedAngle + failedAngle}deg ${completedAngle + failedAngle + pendingAngle}deg,
-    #0ea5e9 ${completedAngle + failedAngle + pendingAngle}deg ${completedAngle + failedAngle + pendingAngle + processingAngle}deg
-  )`;
-
-  const best = data.wer_metrics.best_wer;
-  const avg = data.wer_metrics.average_wer;
-  const worst = data.wer_metrics.worst_wer;
-  const bestPct = Math.min(100, Math.max(0, Math.round(best * 100)));
-  const avgPct = Math.min(100, Math.max(0, Math.round(avg * 100)));
-  const worstPct = Math.min(100, Math.max(0, Math.round(worst * 100)));
 
   const metadataSignals =
     Number(data.variation_coverage.noise_metadata_available) +
     Number(data.variation_coverage.dialect_metadata_available);
-  const topLanguages = data.variation_coverage.language_distribution.slice(
-    0,
-    6,
-  );
-  const topLanguageTotal = topLanguages.reduce(
-    (acc, item) => acc + item.total,
-    0,
-  );
+  const topLanguages = data.variation_coverage.language_distribution.slice(0, 6);
 
   return (
     <div className={`flex flex-col gap-6 ${primaryTextClass}`}>
       <h1 className="text-3xl font-bold text-[#0F172A]">Dashboard</h1>
 
+      {/* ── Summary cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={`p-5 ${cardClass}`}>
           <p className={`text-sm ${mutedTextClass}`}>Total Evaluations</p>
@@ -174,72 +137,40 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Workflow Donut + WER Range ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={`p-6 ${cardClass}`}>
-          <h2 className="text-lg font-semibold">Workflow Donut</h2>
+          <h2 className="text-lg font-semibold">Workflow Status</h2>
           <p className={`text-sm ${mutedTextClass}`}>
-            Status share across all runs
+            Status share across all runs — success rate:{" "}
+            <b className="text-[#1D3557]">
+              {data.workflow_factors.success_rate_percent}%
+            </b>
           </p>
-          <div className="mt-5 flex flex-col sm:flex-row gap-5 items-center">
-            <div className="relative h-40 w-40 shrink-0">
+          <div className="mt-4">
+            <WorkflowDonutChart
+              completed={completed}
+              failed={failed}
+              pending={pending}
+              processing={processing}
+            />
+          </div>
+          {/* Summary row */}
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            {[
+              { label: "Completed",  count: completed,  color: "#1D3557" },
+              { label: "Failed",     count: failed,     color: "#B2182B" },
+              { label: "Pending",    count: pending,    color: "#78350F" },
+              { label: "Processing", count: processing, color: "#475569" },
+            ].map((item) => (
               <div
-                className="absolute inset-0 rounded-full"
-                style={{ background: donutBackground }}
-              />
-              <div className="absolute inset-[22%] rounded-full bg-white border border-[#D7E3FF] flex flex-col items-center justify-center">
-                <p className="text-lg font-bold leading-none">
-                  {data.workflow_factors.success_rate_percent}%
-                </p>
-                <p className={`text-[11px] mt-1 ${mutedTextClass}`}>Success</p>
+                key={item.label}
+                className="flex justify-between rounded border border-[#DEE2E6] bg-[#F8F9FA] px-2 py-1"
+              >
+                <span style={{ color: item.color }}>{item.label}</span>
+                <span className="font-medium">{item.count}</span>
               </div>
-            </div>
-
-            <div className="text-sm flex flex-wrap gap-2 w-full">
-              {[
-                {
-                  label: "Completed",
-                  count: completed,
-                  percent: completedPercent,
-                  color: "bg-[#06a77d]",
-                },
-                {
-                  label: "Failed",
-                  count: failed,
-                  percent: failedPercent,
-                  color: "bg-[#c1121f]",
-                },
-                {
-                  label: "Pending",
-                  count: pending,
-                  percent: pendingPercent,
-                  color: "bg-[#FFC300]",
-                },
-                {
-                  label: "Processing",
-                  count: processing,
-                  percent: processingPercent,
-                  color: "bg-[#0EA5E9]",
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex-1 min-w-[140px] rounded-md border border-[#D7E3FF] bg-white px-2 py-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="flex items-center gap-1 font-medium text-sm">
-                      <span
-                        className={`h-2 w-2 rounded-full ${item.color}`}
-                      />
-                      {item.label}
-                    </p>
-                    <p className="text-sm">{item.percent}%</p>
-                  </div>
-                  <p className={`text-[11px] mt-1 ${mutedTextClass}`}>
-                    {item.count} samples
-                  </p>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
 
@@ -248,145 +179,62 @@ export default async function DashboardPage() {
           <p className={`text-sm ${mutedTextClass}`}>
             Best, average, and worst word error rate
           </p>
-          <div className="mt-5 space-y-4 text-sm">
-            <div>
-              <div className="flex justify-between mb-1">
-                <span>Best WER</span>
-                <span>{best}</span>
-              </div>
-              <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
-                <div
-                  className="h-full bg-[#06a77d] rounded"
-                  style={{ width: `${bestPct}%` }}
-                />
-              </div>
+          <div className="mt-4">
+            <WERRangeBandChart
+              best={data.wer_metrics.best_wer}
+              average={data.wer_metrics.average_wer}
+              worst={data.wer_metrics.worst_wer}
+            />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded border border-[#DEE2E6] bg-[#F8F9FA] px-2 py-1 flex justify-between">
+              <span className={mutedTextClass}>Low-WER share</span>
+              <b>{data.robustness_and_accuracy.low_wer_ratio_percent}%</b>
             </div>
-            <div>
-              <div className="flex justify-between mb-1">
-                <span>Average WER</span>
-                <span>{avg}</span>
-              </div>
-              <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
-                <div
-                  className="h-full bg-[#FFC300] rounded"
-                  style={{ width: `${avgPct}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between mb-1">
-                <span>Worst WER</span>
-                <span>{worst}</span>
-              </div>
-              <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
-                <div
-                  className="h-full bg-[#c1121f] rounded"
-                  style={{ width: `${worstPct}%` }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <p>
-                Low-WER share:{" "}
-                {data.robustness_and_accuracy.low_wer_ratio_percent}%
-              </p>
-              <p>
-                High-WER share:{" "}
-                {data.robustness_and_accuracy.high_wer_ratio_percent}%
-              </p>
+            <div className="rounded border border-[#DEE2E6] bg-[#F8F9FA] px-2 py-1 flex justify-between">
+              <span className={mutedTextClass}>High-WER share</span>
+              <b>{data.robustness_and_accuracy.high_wer_ratio_percent}%</b>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ── Model Performance + Language Coverage ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={`p-6 ${cardClass}`}>
           <h2 className="text-lg font-semibold">Model Performance</h2>
           <p className={`text-sm ${mutedTextClass}`}>
-            Compare quality and usage for each model
+            Compare avg WER and accuracy across models (
+            {data.variation_coverage.unique_models_tested} unique)
           </p>
-          <div className="mt-4 flex flex-col gap-3 text-sm">
-            {data.variation_coverage.model_performance
-              .slice(0, 8)
-              .map((model) => {
-                const percent = toPercent(model.total, totalTx || 1);
-                return (
-                  <div key={model.model_name || "unknown"}>
-                    <div className="flex justify-between gap-3">
-                      <span className="font-medium">
-                        {model.model_name || "unknown"}
-                      </span>
-                      <span>{model.total} runs</span>
-                    </div>
-                    <div className="mt-1 grid grid-cols-2 gap-x-4 text-xs text-[#475569]">
-                      <span>
-                        Avg WER:{" "}
-                        {model.avg_wer === null
-                          ? "N/A"
-                          : model.avg_wer.toFixed(4)}
-                      </span>
-                      <span>
-                        Avg Accuracy:{" "}
-                        {model.avg_accuracy === null
-                          ? "N/A"
-                          : `${(model.avg_accuracy * 100).toFixed(2)}%`}
-                      </span>
-                    </div>
-                    <div className="h-2 mt-1 rounded bg-[#D7E3FF] overflow-hidden">
-                      <div
-                        className="h-full rounded bg-[#1E3A8A]"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            {data.variation_coverage.model_performance.length === 0 && (
-              <p>No model data yet.</p>
+          <div className="mt-4">
+            {data.variation_coverage.model_performance.length === 0 ? (
+              <p className={`text-sm ${mutedTextClass}`}>No model data yet.</p>
+            ) : (
+              <ModelPerformanceChart
+                models={data.variation_coverage.model_performance}
+              />
             )}
           </div>
         </div>
 
         <div className={`p-6 ${cardClass}`}>
-          <h2 className="text-lg font-semibold">Language Coverage Heat List</h2>
+          <h2 className="text-lg font-semibold">Language Coverage</h2>
           <p className={`text-sm ${mutedTextClass}`}>
-            Top languages with count and share of language samples
+            Sample count per language (
+            {data.variation_coverage.unique_languages_tested} unique)
           </p>
-          <div className="mt-4 flex flex-col gap-3 text-sm">
-            {topLanguages.map((language, index) => {
-              const shareInLanguages = toPercent(
-                language.total,
-                topLanguageTotal,
-              );
-              return (
-                <div key={`${language.audio__language__code}-${index}`}>
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium">
-                      {index + 1}. {language.audio__language__language_name}
-                      <span className={`ml-2 text-xs ${mutedTextClass}`}>
-                        ({language.audio__language__code})
-                      </span>
-                    </p>
-                    <p>
-                      {language.total} | {shareInLanguages}%
-                    </p>
-                  </div>
-                  <div className="h-2 mt-1 rounded bg-[#D7E3FF] overflow-hidden">
-                    <div
-                      className="h-full rounded bg-[#0EA5E9]"
-                      style={{ width: `${Math.max(8, shareInLanguages)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-            {topLanguages.length === 0 && (
-              <p className="text-sm mt-2">No language data yet.</p>
+          <div className="mt-4">
+            {topLanguages.length === 0 ? (
+              <p className={`text-sm ${mutedTextClass}`}>No language data yet.</p>
+            ) : (
+              <LanguageCoverageChart languages={topLanguages} />
             )}
           </div>
         </div>
       </div>
 
+      {/* ── Recent Activity ── */}
       <div className={`p-6 ${cardClass}`}>
         <h2 className="text-lg font-semibold">Recent Activity</h2>
         <p className={`text-sm ${mutedTextClass}`}>
@@ -399,25 +247,25 @@ export default async function DashboardPage() {
             data.recent_activity.map((item) => (
               <div
                 key={item.id}
-                className="rounded-lg border border-[#D7E3FF] bg-white p-3"
+                className="rounded-lg border border-[#DEE2E6] bg-[#F8F9FA] p-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">
                     #{item.id} {item.model_name} | {item.language}
                   </p>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-[#E0E7FF] text-[#1E3A8A]">
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-[#E9EEF3] text-[#1D3557] font-medium">
                       {item.status}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-xs ${
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                         item.wer_score === null
-                          ? "bg-[#E0E7FF] text-[#1E3A8A]"
+                          ? "bg-[#E9EEF3] text-[#475569]"
                           : item.wer_score <= 0.2
-                            ? "bg-[#D5F3EE] text-[#06a77d]"
+                            ? "bg-[#DBEAFE] text-[#1D3557]"
                             : item.wer_score >= 0.4
-                              ? "bg-[#FBE4E4] text-[#c1121f]"
-                              : "bg-[#FFF7D1] text-[#8C6A00]"
+                              ? "bg-[#FEE2E2] text-[#B2182B]"
+                              : "bg-[#FEF3C7] text-[#78350F]"
                       }`}
                     >
                       {item.wer_score === null

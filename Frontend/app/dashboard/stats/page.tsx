@@ -1,3 +1,9 @@
+import {
+  WERDistributionDonut,
+  ErrorBreakdownDonut,
+  ComparisonGroupedBar,
+} from "./StatsCharts";
+
 type ComparisonItem = {
   count: number;
   avg_wer: number;
@@ -79,77 +85,38 @@ function toPct(part: number, total: number) {
 }
 
 function werColor(wer: number) {
-  if (wer < 0.2) return "#06a77d";
-  if (wer < 0.4) return "#FFC300";
-  return "#c1121f";
+  if (wer < 0.2) return "#1D3557"; // navy  — excellent
+  if (wer < 0.4) return "#92400E"; // amber — acceptable
+  return "#B2182B"; // crimson — poor
 }
 
-function ErrorBar({
-  hits,
-  substitutions,
-  deletions,
-  insertions,
-}: {
-  hits: number;
-  substitutions: number;
-  deletions: number;
-  insertions: number;
-}) {
-  const total = hits + substitutions + deletions + insertions || 1;
+// Compact metric row shown beneath each grouped-bar chart
+function MetricRow({ item, label }: { label: string; item: ComparisonItem }) {
+  const color = werColor(item.avg_wer);
   return (
-    <div>
-      <div className="h-2 flex rounded overflow-hidden bg-[#D7E3FF]">
-        <div className="bg-[#06a77d]" style={{ width: `${(hits / total) * 100}%` }} />
-        <div className="bg-[#FFC300]" style={{ width: `${(substitutions / total) * 100}%` }} />
-        <div className="bg-[#F97316]" style={{ width: `${(deletions / total) * 100}%` }} />
-        <div className="bg-[#c1121f]" style={{ width: `${(insertions / total) * 100}%` }} />
-      </div>
-      <div className="mt-1 grid grid-cols-4 text-[10px] gap-1">
-        <span className="text-[#06a77d]">✓ {hits.toLocaleString()} correct</span>
-        <span className="text-[#d97706]">~ {substitutions.toLocaleString()} wrong</span>
-        <span className="text-[#F97316]">− {deletions.toLocaleString()} missing</span>
-        <span className="text-[#c1121f]">+ {insertions.toLocaleString()} extra</span>
-      </div>
-    </div>
-  );
-}
-
-function ComparisonCard({ label, item }: { label: string; item: ComparisonItem }) {
-  return (
-    <div className="rounded-lg border border-[#D7E3FF] bg-white p-3">
-      <div className="flex justify-between items-center mb-2">
-        <p className="font-medium capitalize">{label}</p>
-        <span className="text-xs text-[#64748B]">{item.count} samples</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-        <span>
-          WER:{" "}
-          <b style={{ color: werColor(item.avg_wer) }}>
-            {(item.avg_wer * 100).toFixed(1)}%
-          </b>
-        </span>
-        <span>
-          Accuracy:{" "}
-          <b className="text-[#06a77d]">{(item.avg_accuracy * 100).toFixed(1)}%</b>
-        </span>
-        <span>
-          CER: <b>{(item.avg_cer * 100).toFixed(1)}%</b>
-        </span>
-      </div>
-      <ErrorBar
-        hits={item.total_hits}
-        substitutions={item.total_substitutions}
-        deletions={item.total_deletions}
-        insertions={item.total_insertions}
-      />
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-[#DEE2E6] bg-[#F8F9FA] px-3 py-2 text-xs">
+      <span className="font-medium capitalize min-w-[80px]">{label}</span>
+      <span className="text-[#64748B]">{item.count} samples</span>
+      <span>
+        WER <b style={{ color }}>{(item.avg_wer * 100).toFixed(1)}%</b>
+      </span>
+      <span>
+        Acc{" "}
+        <b className="text-[#1D3557]">
+          {(item.avg_accuracy * 100).toFixed(1)}%
+        </b>
+      </span>
+      <span>
+        CER <b>{(item.avg_cer * 100).toFixed(1)}%</b>
+      </span>
     </div>
   );
 }
 
 export default async function StatsPage() {
   const data = await getStatsData();
-  const card = "rounded-xl border border-[#D7E3FF] bg-[#EEF2FF] shadow-sm";
-  const muted = "text-[#64748B]";
+  const card = "rounded-xl border border-[#DEE2E6] bg-white shadow-sm";
+  const muted = "text-[#6B7280]";
 
   if (!data) {
     return (
@@ -168,10 +135,10 @@ export default async function StatsPage() {
 
   const sysWerPct = Math.min(100, Math.round(bench.system_average_wer * 100));
   const benchColor = bench.beats_benchmark
-    ? "#06a77d"
+    ? "#1D3557"
     : bench.within_benchmark
-      ? "#FFC300"
-      : "#c1121f";
+      ? "#92400E"
+      : "#B2182B";
   const benchLabel = bench.beats_benchmark
     ? "Below literature baseline — strong performance"
     : bench.within_benchmark
@@ -180,9 +147,10 @@ export default async function StatsPage() {
 
   const distTotal = dist.total_scored || 1;
   const totalWords =
-    ra.total_hits + ra.total_substitutions + ra.total_deletions + ra.total_insertions || 1;
-
-  const maxWordError = data.problematic_words[0]?.error_count || 1;
+    ra.total_hits +
+      ra.total_substitutions +
+      ra.total_deletions +
+      ra.total_insertions || 1;
 
   return (
     <div className="flex flex-col gap-6 text-[#0F172A]">
@@ -204,7 +172,10 @@ export default async function StatsPage() {
         </div>
         <div className={`p-5 ${card}`}>
           <p className={`text-sm ${muted}`}>Avg System Accuracy</p>
-          <p className="text-2xl font-semibold mt-1" style={{ color: benchColor }}>
+          <p
+            className="text-2xl font-semibold mt-1"
+            style={{ color: benchColor }}
+          >
             {(bench.system_average_accuracy * 100).toFixed(1)}%
           </p>
         </div>
@@ -230,9 +201,9 @@ export default async function StatsPage() {
           Amodei 2016)
         </p>
         <div className="mt-5">
-          <div className="relative h-6 rounded-full bg-[#D7E3FF]">
+          <div className="relative h-6 rounded-full bg-[#E5E9F0]">
             <div
-              className="absolute top-0 h-full bg-[#FFF7D1] border-x border-[#FFC300]"
+              className="absolute top-0 h-full bg-[#9BC4E2] border-x border-[#2166AC]"
               style={{ left: "20%", width: "30%" }}
             />
             <div
@@ -242,26 +213,36 @@ export default async function StatsPage() {
           </div>
           <div className="relative mt-1 text-xs text-[#64748B] h-4">
             <span className="absolute left-0">0%</span>
-            <span className="absolute" style={{ left: "20%" }}>20%</span>
-            <span className="absolute" style={{ left: "50%" }}>50%</span>
+            <span className="absolute" style={{ left: "20%" }}>
+              20%
+            </span>
+            <span className="absolute" style={{ left: "50%" }}>
+              50%
+            </span>
             <span className="absolute right-0">100%</span>
           </div>
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-lg border border-[#D7E3FF] bg-white p-3">
+            <div className="rounded-lg border border-[#DEE2E6] bg-[#F8F9FA] p-3">
               <p className={`text-xs ${muted}`}>System Avg WER</p>
-              <p className="text-xl font-semibold mt-0.5" style={{ color: benchColor }}>
+              <p
+                className="text-xl font-semibold mt-0.5"
+                style={{ color: benchColor }}
+              >
                 {(bench.system_average_wer * 100).toFixed(1)}%
               </p>
             </div>
-            <div className="rounded-lg border border-[#D7E3FF] bg-white p-3">
+            <div className="rounded-lg border border-[#DEE2E6] bg-[#F8F9FA] p-3">
               <p className={`text-xs ${muted}`}>System Avg Accuracy</p>
-              <p className="text-xl font-semibold mt-0.5 text-[#06a77d]">
+              <p className="text-xl font-semibold mt-0.5 text-[#1D3557]">
                 {(bench.system_average_accuracy * 100).toFixed(1)}%
               </p>
             </div>
-            <div className="rounded-lg border border-[#D7E3FF] bg-white p-3">
+            <div className="rounded-lg border border-[#DEE2E6] bg-[#F8F9FA] p-3">
               <p className={`text-xs ${muted}`}>Status vs. Literature</p>
-              <p className="text-sm font-medium mt-0.5" style={{ color: benchColor }}>
+              <p
+                className="text-sm font-medium mt-0.5"
+                style={{ color: benchColor }}
+              >
                 {benchLabel}
               </p>
             </div>
@@ -276,24 +257,44 @@ export default async function StatsPage() {
           <p className={`text-sm ${muted}`}>
             Quality breakdown across {dist.total_scored} scored evaluations
           </p>
-          <div className="mt-4 flex flex-col gap-3 text-sm">
+          <WERDistributionDonut
+            excellent={dist.excellent_count}
+            good={dist.good_count}
+            fair={dist.fair_count}
+            poor={dist.poor_count}
+          />
+          {/* Exact counts table */}
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
             {[
-              { label: "Excellent (WER < 10%)", count: dist.excellent_count, color: "bg-[#06a77d]" },
-              { label: "Good (10% ≤ WER < 20%)", count: dist.good_count, color: "bg-[#22c55e]" },
-              { label: "Fair (20% ≤ WER < 40%)", count: dist.fair_count, color: "bg-[#FFC300]" },
-              { label: "Poor (WER ≥ 40%)", count: dist.poor_count, color: "bg-[#c1121f]" },
+              {
+                label: "Excellent (<10%)",
+                count: dist.excellent_count,
+                color: "#2166AC",
+              },
+              {
+                label: "Good (10–20%)",
+                count: dist.good_count,
+                color: "#74ADD1",
+              },
+              {
+                label: "Fair (20–40%)",
+                count: dist.fair_count,
+                color: "#92400E",
+              },
+              {
+                label: "Poor (≥40%)",
+                count: dist.poor_count,
+                color: "#B2182B",
+              },
             ].map((b) => (
-              <div key={b.label}>
-                <div className="flex justify-between mb-1">
-                  <span>{b.label}</span>
-                  <span>{b.count} ({toPct(b.count, distTotal)}%)</span>
-                </div>
-                <div className="h-2 rounded bg-[#D7E3FF] overflow-hidden">
-                  <div
-                    className={`h-full rounded ${b.color}`}
-                    style={{ width: `${Math.max(4, toPct(b.count, distTotal))}%` }}
-                  />
-                </div>
+              <div
+                key={b.label}
+                className="flex justify-between rounded border border-[#DEE2E6] bg-[#F8F9FA] px-2 py-1"
+              >
+                <span style={{ color: b.color }}>{b.label}</span>
+                <span className="font-medium">
+                  {b.count} ({toPct(b.count, distTotal)}%)
+                </span>
               </div>
             ))}
           </div>
@@ -304,106 +305,162 @@ export default async function StatsPage() {
           <p className={`text-sm ${muted}`}>
             Total word-level errors across all evaluations
           </p>
-          <div className="mt-4">
-            <ErrorBar
-              hits={ra.total_hits}
-              substitutions={ra.total_substitutions}
-              deletions={ra.total_deletions}
-              insertions={ra.total_insertions}
-            />
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <ErrorBreakdownDonut
+            hits={ra.total_hits}
+            substitutions={ra.total_substitutions}
+            deletions={ra.total_deletions}
+            insertions={ra.total_insertions}
+          />
+          {/* Exact counts */}
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
             {[
-              { label: "Correct words", val: ra.total_hits, color: "#06a77d" },
-              { label: "Wrong words", val: ra.total_substitutions, color: "#d97706" },
-              { label: "Missing words", val: ra.total_deletions, color: "#F97316" },
-              { label: "Extra words", val: ra.total_insertions, color: "#c1121f" },
+              { label: "Correct", val: ra.total_hits, color: "#2166AC" },
+              {
+                label: "Substitutions",
+                val: ra.total_substitutions,
+                color: "#B2182B",
+              },
+              { label: "Deletions", val: ra.total_deletions, color: "#92400E" },
+              {
+                label: "Insertions",
+                val: ra.total_insertions,
+                color: "#4D4D4D",
+              },
             ].map((e) => (
-              <div key={e.label} className="rounded-lg border border-[#D7E3FF] bg-white p-3">
-                <p className={`text-xs ${muted}`}>{e.label}</p>
-                <p className="text-lg font-semibold mt-0.5" style={{ color: e.color }}>
-                  {e.val.toLocaleString()}
-                </p>
-                <p className={`text-[10px] ${muted}`}>
-                  {toPct(e.val, totalWords)}% of total
-                </p>
+              <div
+                key={e.label}
+                className="flex justify-between rounded border border-[#DEE2E6] bg-[#F8F9FA] px-2 py-1"
+              >
+                <span style={{ color: e.color }}>{e.label}</span>
+                <span className="font-medium">
+                  {e.val.toLocaleString()} ({toPct(e.val, totalWords)}%)
+                </span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── Gender + Age Comparison ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className={`p-6 ${card}`}>
-          <h2 className="text-lg font-semibold">Gender Comparison</h2>
-          <p className={`text-sm ${muted}`}>
-            WER, accuracy, and error breakdown by speaker gender
+      {/* ── Gender Comparison ── */}
+      <div className={`p-6 ${card}`}>
+        <h2 className="text-lg font-semibold">Gender Comparison</h2>
+        <p className={`text-sm ${muted}`}>
+          WER, accuracy, and CER by speaker gender
+        </p>
+        {data.gender_analysis.length === 0 ? (
+          <p className={`mt-4 text-sm ${muted}`}>
+            No gender data recorded yet.
           </p>
-          <div className="mt-4 flex flex-col gap-3">
-            {data.gender_analysis.length === 0 ? (
-              <p className={`text-sm ${muted}`}>No gender data recorded yet.</p>
-            ) : (
-              data.gender_analysis.map((g) => (
-                <ComparisonCard key={g.gender} label={g.gender} item={g} />
-              ))
-            )}
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="mt-4">
+              <ComparisonGroupedBar
+items={data.gender_analysis.map((g) => ({
+                  label: g.gender,
+                  avg_wer: g.avg_wer,
+                  avg_accuracy: g.avg_accuracy,
+                  avg_cer: g.avg_cer,
+                }))}
+              />
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {data.gender_analysis.map((g) => (
+                <MetricRow key={g.gender} label={g.gender} item={g} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
-        <div className={`p-6 ${card}`}>
-          <h2 className="text-lg font-semibold">Age Group Comparison</h2>
-          <p className={`text-sm ${muted}`}>
-            WER, accuracy, and error breakdown by speaker age group
-          </p>
-          <div className="mt-4 flex flex-col gap-3">
-            {data.age_analysis.length === 0 ? (
-              <p className={`text-sm ${muted}`}>No age data recorded yet.</p>
-            ) : (
-              data.age_analysis.map((a) => (
-                <ComparisonCard key={a.age_group} label={a.age_group} item={a} />
-              ))
-            )}
-          </div>
-        </div>
+      {/* ── Age Group Comparison ── */}
+      <div className={`p-6 ${card}`}>
+        <h2 className="text-lg font-semibold">Age Group Comparison</h2>
+        <p className={`text-sm ${muted}`}>
+          WER, accuracy, and CER by speaker age group
+        </p>
+        {data.age_analysis.length === 0 ? (
+          <p className={`mt-4 text-sm ${muted}`}>No age data recorded yet.</p>
+        ) : (
+          <>
+            <div className="mt-4">
+              <ComparisonGroupedBar
+items={data.age_analysis.map((a) => ({
+                  label: a.age_group,
+                  avg_wer: a.avg_wer,
+                  avg_accuracy: a.avg_accuracy,
+                  avg_cer: a.avg_cer,
+                }))}
+              />
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {data.age_analysis.map((a) => (
+                <MetricRow key={a.age_group} label={a.age_group} item={a} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Language Comparison ── */}
       <div className={`p-6 ${card}`}>
         <h2 className="text-lg font-semibold">Language Comparison</h2>
         <p className={`text-sm ${muted}`}>
-          WER, accuracy, and error breakdown per language
+          WER, accuracy, and CER per language
         </p>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {data.language_wer_analysis.length === 0 ? (
-            <p className={`text-sm ${muted}`}>No language data yet.</p>
-          ) : (
-            data.language_wer_analysis.map((lang) => (
-              <ComparisonCard
-                key={lang.language_code}
-                label={`${lang.language_name} (${lang.language_code})`}
-                item={lang}
+        {data.language_wer_analysis.length === 0 ? (
+          <p className={`mt-4 text-sm ${muted}`}>No language data yet.</p>
+        ) : (
+          <>
+            <div className="mt-4">
+              <ComparisonGroupedBar
+items={data.language_wer_analysis.map((l) => ({
+                  label: l.language_name,
+                  avg_wer: l.avg_wer,
+                  avg_accuracy: l.avg_accuracy,
+                  avg_cer: l.avg_cer,
+                }))}
               />
-            ))
-          )}
-        </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {data.language_wer_analysis.map((l) => (
+                <MetricRow
+                  key={l.language_code}
+                  label={`${l.language_name} (${l.language_code})`}
+                  item={l}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Dialect Comparison ── */}
       <div className={`p-6 ${card}`}>
         <h2 className="text-lg font-semibold">Dialect Comparison</h2>
-        <p className={`text-sm ${muted}`}>
-          WER, accuracy, and error breakdown per dialect
-        </p>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {data.dialect_analysis.length === 0 ? (
-            <p className={`text-sm ${muted}`}>No dialect data recorded yet.</p>
-          ) : (
-            data.dialect_analysis.map((d) => (
-              <ComparisonCard key={d.dialect} label={d.dialect} item={d} />
-            ))
-          )}
-        </div>
+        <p className={`text-sm ${muted}`}>WER, accuracy, and CER per dialect</p>
+        {data.dialect_analysis.length === 0 ? (
+          <p className={`mt-4 text-sm ${muted}`}>
+            No dialect data recorded yet.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4">
+              <ComparisonGroupedBar
+items={data.dialect_analysis.map((d) => ({
+                  label: d.dialect,
+                  avg_wer: d.avg_wer,
+                  avg_accuracy: d.avg_accuracy,
+                  avg_cer: d.avg_cer,
+                }))}
+              />
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {data.dialect_analysis.map((d) => (
+                <MetricRow key={d.dialect} label={d.dialect} item={d} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Most Problematic Words ── */}
@@ -411,42 +468,47 @@ export default async function StatsPage() {
         <h2 className="text-lg font-semibold">Most Problematic Words</h2>
         <p className={`text-sm ${muted}`}>
           Reference words most frequently substituted or deleted by the ASR
-          system
+          system (top 20)
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {data.problematic_words.length === 0 ? (
-            <p className={`text-sm ${muted}`}>No error data available yet.</p>
-          ) : (
-            data.problematic_words.map((w) => {
-              const intensity = Math.round((w.error_count / maxWordError) * 100);
-              const bg =
-                intensity > 66 ? "#FBE4E4" : intensity > 33 ? "#FFF7D1" : "#EEF2FF";
-              const fg =
-                intensity > 66 ? "#c1121f" : intensity > 33 ? "#8C6A00" : "#1E3A8A";
-              return (
-                <div
-                  key={w.word}
-                  className="flex items-center gap-1 rounded-full px-3 py-1 text-sm border"
-                  style={{ backgroundColor: bg, color: fg, borderColor: bg }}
-                >
-                  <span className="font-medium">{w.word}</span>
-                  <span className="text-xs opacity-75">×{w.error_count}</span>
-                </div>
-              );
-            })
-          )}
-        </div>
-        <div className={`mt-3 flex flex-wrap gap-4 text-xs ${muted}`}>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-4 rounded bg-[#FBE4E4]" /> High frequency
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-4 rounded bg-[#FFF7D1]" /> Medium frequency
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-4 rounded bg-[#EEF2FF]" /> Low frequency
-          </span>
-        </div>
+        {data.problematic_words.length === 0 ? (
+          <p className={`mt-4 text-sm ${muted}`}>No error data available yet.</p>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {data.problematic_words.slice(0, 30).map((w) => {
+                const max = data.problematic_words[0].error_count;
+                const pct = Math.round((w.error_count / max) * 100);
+                const [bg, fg, border] =
+                  pct > 66
+                    ? ["#FEE2E2", "#B2182B", "#FECACA"]
+                    : pct > 33
+                      ? ["#DBEAFE", "#2166AC", "#BFDBFE"]
+                      : ["#E0EEF8", "#4393C3", "#BAD6ED"];
+                return (
+                  <span
+                    key={w.word}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium"
+                    style={{ backgroundColor: bg, color: fg, borderColor: border }}
+                  >
+                    {w.word}
+                    <span className="text-xs opacity-70">×{w.error_count}</span>
+                  </span>
+                );
+              })}
+            </div>
+            <div className={`mt-3 flex flex-wrap gap-4 text-xs ${muted}`}>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#B2182B]" /> High frequency
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#2166AC]" /> Medium frequency
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#4393C3]" /> Low frequency
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

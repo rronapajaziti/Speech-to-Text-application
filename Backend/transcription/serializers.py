@@ -70,14 +70,26 @@ class TranscriptionSerializer(serializers.ModelSerializer):
 
 
 class EvaluationResultsSerializer(serializers.ModelSerializer):
-    username = serializers.SerializerMethodField()
+    username = serializers.CharField(
+        source="transcription.audio.user.username",
+        read_only=True
+    )
 
     class Meta:
         model = EvaluationResults
         fields = "__all__"
 
     def get_username(self, obj):
-        try:
-            return obj.transcription.audio.user.username
-        except:
+        transcription = obj.transcription
+        if not transcription:
             return None
+    
+        audio = transcription.audio
+        if not audio:
+            return None
+    
+        user = audio.user
+        if not user:
+            return None
+    
+        return user.username

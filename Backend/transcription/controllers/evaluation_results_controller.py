@@ -41,6 +41,7 @@ def getEvaluationResults(request):
             "created_at": row.created_at,
             "model_name": row.transcription.model_name if row.transcription else None,
             "evaluation_date": row.created_at,
+            "username": row.transcription.audio.user.username if row.transcription and row.transcription.audio and row.transcription.audio.user else None,
         })
 
     return paginator.get_paginated_response(data)
